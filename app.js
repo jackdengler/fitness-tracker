@@ -1130,15 +1130,21 @@
     saveDB();
     showFood("today");
   }
+  const WAIST_DAY = 0; // 0=Sunday .. 6=Saturday
+  const WAIST_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   function showBody() {
     stopTimer();
     if (active()) saveActive();
     phase = "body";
     const d = dayKey(),
+      isWaistDay = new Date().getDay() === WAIST_DAY,
       tw = db.weightLogs.find((x) => x.date === d),
       lw = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
       lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">Body</div><button id="bodyBack" class="btn" type="button">Back</button></div><div class="metrics" style="grid-template-columns:1fr 1fr"><div class="metric"><div class="metricName">Latest weight</div><div class="metricVal">${lw ? Number(lw.weight).toFixed(1) : "—"}</div><div>lb</div></div><div class="metric"><div class="metricName">Latest waist</div><div class="metricVal">${lwa ? Number(lwa.waist).toFixed(1) : "—"}</div><div>in</div></div></div><div class="bodyForms"><form id="weightForm" class="form"><strong>Daily weight</strong><input id="weightInput" type="number" inputmode="decimal" min="100" max="400" step="0.1" value="${tw ? tw.weight : ""}" placeholder="Weight (lb)" required><button class="submit" type="submit">Save</button></form><form id="waistForm" class="form"><strong>Weekly waist</strong><input id="waistInput" type="number" inputmode="decimal" min="20" max="80" step="0.1" placeholder="Waist at navel (in)" required><button class="submit" type="submit">Save</button></form></div><div class="list">${renderBody()}</div></section>`;
+    const waistBlock = isWaistDay
+      ? `<form id="waistForm" class="form"><strong>Weekly waist</strong><input id="waistInput" type="number" inputmode="decimal" min="20" max="80" step="0.1" value="${db.waistLogs.find((x) => x.date === d) ? db.waistLogs.find((x) => x.date === d).waist : ""}" placeholder="Waist at navel (in)" required><button class="submit" type="submit">Save</button></form>`
+      : `<div class="form"><strong>Weekly waist</strong><div class="note" style="margin-top:8px">Logged ${WAIST_DAY_NAMES[WAIST_DAY]}s. ${lwa ? `Last: ${Number(lwa.waist).toFixed(1)} in on ${esc(lwa.date)}.` : "Not logged yet."}</div></div>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">Body</div><button id="bodyBack" class="btn" type="button">Back</button></div><div class="metrics" style="grid-template-columns:1fr 1fr"><div class="metric"><div class="metricName">Latest weight</div><div class="metricVal">${lw ? Number(lw.weight).toFixed(1) : "—"}</div><div>lb</div></div><div class="metric"><div class="metricName">Latest waist</div><div class="metricVal">${lwa ? Number(lwa.waist).toFixed(1) : "—"}</div><div>in</div></div></div><div class="bodyForms"><form id="weightForm" class="form"><strong>Daily weight</strong><input id="weightInput" type="number" inputmode="decimal" min="100" max="400" step="0.1" value="${tw ? tw.weight : ""}" placeholder="Weight (lb)" required><button class="submit" type="submit">Save</button></form>${waistBlock}</div><div class="list">${renderBody()}</div></section>`;
     stage.querySelector("#bodyBack").addEventListener("click", showHome);
     stage.querySelector("#weightForm").addEventListener("submit", (e) => {
       e.preventDefault();
@@ -1150,29 +1156,48 @@
       saveDB();
       showBody();
     });
-    stage.querySelector("#waistForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const v = Number(stage.querySelector("#waistInput").value);
-      if (!Number.isFinite(v) || v < 20 || v > 80) return;
-      const x = db.waistLogs.find((x) => x.date === d);
-      if (x) x.waist = v;
-      else db.waistLogs.push({ date: d, waist: v });
-      saveDB();
-      showBody();
-    });
+    if (isWaistDay) {
+      stage.querySelector("#waistForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const v = Number(stage.querySelector("#waistInput").value);
+        if (!Number.isFinite(v) || v < 20 || v > 80) return;
+        const x = db.waistLogs.find((x) => x.date === d);
+        if (x) x.waist = v;
+        else db.waistLogs.push({ date: d, waist: v });
+        saveDB();
+        showBody();
+      });
+    }
+    stage.querySelectorAll("[data-delete-body]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const [kind, date] = b.dataset.deleteBody.split("|");
+        const arr = kind === "weight" ? db.weightLogs : db.waistLogs;
+        const idx = arr.findIndex((x) => x.date === date);
+        if (idx === -1) return;
+        const [removed] = arr.splice(idx, 1);
+        saveDB();
+        showBody();
+        showUndoToast(`Deleted ${kind} · ${date}`, () => {
+          arr.splice(idx, 0, removed);
+          saveDB();
+          if (phase === "body") showBody();
+        });
+      }),
+    );
     armBackgroundTimer();
   }
   function renderBody() {
-    const dates = [...new Set([...db.weightLogs.map((x) => x.date), ...db.waistLogs.map((x) => x.date)])].sort().reverse();
-    return dates.length
-      ? dates
-          .map((d) => {
-            const w = db.weightLogs.find((x) => x.date === d),
-              wa = db.waistLogs.find((x) => x.date === d);
-            return `<div class="bodyRow"><strong>${esc(d)}</strong><span>${w ? Number(w.weight).toFixed(1) + " lb" : ""}${w && wa ? " · " : ""}${wa ? Number(wa.waist).toFixed(1) + " in" : ""}</span></div>`;
-          })
-          .join("")
-      : `<div class="bodyRow">No measurements yet.</div>`;
+    const items = [
+      ...db.weightLogs.map((x) => ({ kind: "weight", date: x.date, text: `${Number(x.weight).toFixed(1)} lb` })),
+      ...db.waistLogs.map((x) => ({ kind: "waist", date: x.date, text: `${Number(x.waist).toFixed(1)} in (waist)` })),
+    ].sort((a, b) => b.date.localeCompare(a.date) || (a.kind === b.kind ? 0 : a.kind === "weight" ? -1 : 1));
+    if (!items.length) return `<div class="bodyRow">No measurements yet.</div>`;
+    return items
+      .map(
+        (it) =>
+          `<div class="bodyRow"><strong>${esc(it.date)}</strong><span style="display:flex;align-items:center;gap:10px">${it.text}<button class="delete" data-delete-body="${it.kind}|${esc(it.date)}" type="button" aria-label="Delete">×</button></span></div>`,
+      )
+      .join("");
   }
   function showHistory() {
     stopTimer();

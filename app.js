@@ -542,8 +542,12 @@
     startedAt = null,
     audioContext = null,
     locked = false;
+  const DAY_ROLLOVER_HOUR = 4; // "today" doesn't flip to the next date until 4am
+  function effectiveNow() {
+    return new Date(Date.now() - DAY_ROLLOVER_HOUR * 60 * 60 * 1000);
+  }
   function dayKey() {
-    const d = new Date();
+    const d = effectiveNow();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
   function esc(s) {
@@ -1008,8 +1012,7 @@
     if (tab !== "today") editingFoodId = null;
     phase = "food";
     const d = dayKey(),
-      t = foodTotals(d),
-      count = db.foodLogs.filter((x) => x.date === d).length;
+      t = foodTotals(d);
     const library =
       tab === "meals"
         ? renderFoodList(meals)
@@ -1018,7 +1021,7 @@
           : tab === "drinks"
             ? renderFoodList(drinks)
             : renderQuickAddForm() + renderToday(d);
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal">${Math.round(t.calories)}</div><div>${targets.calories} target</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal">${r1(t.protein)}g</div><div>${targets.protein}g target</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal">${r1(t.carbs)}g</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal">${r1(t.fat)}g</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal">${Math.round(t.sodium)}</div><div>mg</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal">${r1(t.fiber)}g</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">Today · ${count}</button></div><div class="library">${library}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal">${Math.round(t.calories)}</div><div>${targets.calories} target</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal">${r1(t.protein)}g</div><div>${targets.protein}g target</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal">${r1(t.carbs)}g</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal">${r1(t.fat)}g</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal">${Math.round(t.sodium)}</div><div>mg</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal">${r1(t.fiber)}g</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">History</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
     stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));
@@ -1181,10 +1184,39 @@
       { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0 },
     );
   }
+  function formatDayLabel(dateStr) {
+    const dt = new Date(dateStr + "T00:00:00");
+    return dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
   function renderToday(d) {
-    const rows = db.foodLogs.filter((x) => x.date === d).slice().reverse();
-    if (!rows.length) return `<div class="logRow"><div class="foodName">Nothing logged today.</div></div>`;
-    return rows.map((x) => (String(x.id) === editingFoodId ? renderFoodEditRow(x) : renderFoodRow(x))).join("");
+    if (!db.foodLogs.length) return `<div class="logRow"><div class="foodName">Nothing logged yet.</div></div>`;
+    const byDate = {};
+    db.foodLogs.forEach((x) => {
+      (byDate[x.date] || (byDate[x.date] = [])).push(x);
+    });
+    const dates = Object.keys(byDate).sort().reverse();
+    return dates
+      .map((date) => {
+        const items = byDate[date];
+        const totals = items.reduce(
+          (a, x) => {
+            a.calories += x.calories || 0;
+            a.protein += x.protein || 0;
+            a.carbs += x.carbs || 0;
+            a.fat += x.fat || 0;
+            return a;
+          },
+          { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        );
+        const isToday = date === d;
+        const rows = items
+          .slice()
+          .reverse()
+          .map((x) => (String(x.id) === editingFoodId ? renderFoodEditRow(x) : renderFoodRow(x)))
+          .join("");
+        return `<details ${isToday ? "open" : ""}><summary style="font-size:13px;padding:10px 12px;margin:0;background:light-dark(#ecece8,#141614)">${formatDayLabel(date)}${isToday ? " · today" : ""} · ${Math.round(totals.calories)} cal · ${r1(totals.protein)}g P · ${r1(totals.carbs)}g C · ${r1(totals.fat)}g F</summary><div>${rows}</div></details>`;
+      })
+      .join("");
   }
   function renderFoodRow(x) {
     return `<div class="logRow" data-food-row="${x.id}"><div class="logTop"><div><div class="foodName">${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(x.serving || "")}</div><div class="macroLine">${x.approx ? "~" : ""}${x.calories} cal · ${r1(x.protein)}g P · ${r1(x.carbs)}g C · ${r1(x.fat)}g F · ${Math.round(x.sodium || 0)}mg Na · ${r1(x.fiber)}g fiber</div></div><div style="display:flex;flex-direction:column;gap:6px"><button class="delete" data-edit-food="${x.id}" type="button" aria-label="Edit">✎</button><button class="delete" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></div></div></div>`;
@@ -1295,7 +1327,7 @@
     if (active()) saveActive();
     phase = "body";
     const d = dayKey(),
-      isWaistDay = new Date().getDay() === WAIST_DAY,
+      isWaistDay = effectiveNow().getDay() === WAIST_DAY,
       tw = db.weightLogs.find((x) => x.date === d),
       lw = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
       lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];

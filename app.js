@@ -374,6 +374,19 @@
       approx: true,
       note: "Black coffee estimate — add milk/sugar separately if used. Varies with size and shots.",
     },
+    {
+      id: "isopureproteinshake",
+      name: "Isopure Protein Shake",
+      serving: "20 fl oz bottle (Zero Carb RTD)",
+      calories: 160,
+      protein: 40,
+      carbs: 1,
+      fat: 0.5,
+      sodium: 220,
+      fiber: 0,
+      approx: true,
+      note: "Isopure Zero Carb ready-to-drink bottle — typical label values, varies a bit by flavor.",
+    },
   ];
   const templates = {
     A: {
@@ -934,11 +947,44 @@
       t = foodTotals(d),
       count = db.foodLogs.filter((x) => x.date === d).length;
     const library =
-      tab === "meals" ? renderFoodList(meals) : tab === "snacks" ? renderFoodList(snacks) : tab === "drinks" ? renderFoodList(drinks) : renderToday(d);
+      tab === "meals"
+        ? renderFoodList(meals)
+        : tab === "snacks"
+          ? renderFoodList(snacks)
+          : tab === "drinks"
+            ? renderFoodList(drinks)
+            : renderQuickAddForm() + renderToday(d);
     stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal">${Math.round(t.calories)}</div><div>${targets.calories} target</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal">${r1(t.protein)}g</div><div>${targets.protein}g target</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal">${r1(t.carbs)}g</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal">${r1(t.fat)}g</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal">${Math.round(t.sodium)}</div><div>mg</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal">${r1(t.fiber)}g</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">Today · ${count}</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
     stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));
+    if (tab === "today") {
+      stage.querySelector("#quickAddForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = (stage.querySelector("#quickName").value || "").trim();
+        const calories = Number(stage.querySelector("#quickCalories").value);
+        if (!name || !Number.isFinite(calories)) return;
+        const num = (id) => {
+          const v = Number(stage.querySelector(id).value);
+          return Number.isFinite(v) ? v : 0;
+        };
+        db.foodLogs.push({
+          id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
+          date: dayKey(),
+          name,
+          serving: "",
+          calories,
+          protein: num("#quickProtein"),
+          carbs: num("#quickCarbs"),
+          fat: num("#quickFat"),
+          sodium: num("#quickSodium"),
+          fiber: num("#quickFiber"),
+          approx: false,
+        });
+        saveDB();
+        showFood("today");
+      });
+    }
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
       b.addEventListener("click", () => {
         const id = b.dataset.deleteFood;
@@ -980,6 +1026,21 @@
       }
     }
     armBackgroundTimer();
+  }
+  function renderQuickAddForm() {
+    return `<form id="quickAddForm" class="form" style="display:flex;flex-direction:column;gap:8px">
+      <strong>Quick add (one-off, not saved to a list)</strong>
+      <input id="quickName" type="text" placeholder="Name" required>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <input id="quickCalories" type="number" inputmode="decimal" placeholder="Calories" required>
+        <input id="quickProtein" type="number" inputmode="decimal" step="0.1" placeholder="Protein (g)">
+        <input id="quickCarbs" type="number" inputmode="decimal" step="0.1" placeholder="Carbs (g)">
+        <input id="quickFat" type="number" inputmode="decimal" step="0.1" placeholder="Fat (g)">
+        <input id="quickSodium" type="number" inputmode="decimal" placeholder="Sodium (mg)">
+        <input id="quickFiber" type="number" inputmode="decimal" step="0.1" placeholder="Fiber (g)">
+      </div>
+      <button class="submit" type="submit">Add</button>
+    </form>`;
   }
   function renderFoodList(list) {
     return list

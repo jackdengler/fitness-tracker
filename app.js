@@ -142,7 +142,30 @@
   });
   // --- end remote sync ---
 
-  const targets = { calories: 2000, protein: 180 };
+  const targets = {
+    calories: { min: 1900, max: 2100 },
+    protein: { min: 180 },
+    fiber: { min: 30 },
+    carbs: { max: 180 },
+    fat: { max: 65 },
+    sodium: { max: 2300 },
+  };
+  function targetLabel(key) {
+    const t = targets[key];
+    if (!t) return "";
+    const unit = key === "sodium" ? "mg" : key === "calories" ? "" : "g";
+    if (t.min !== undefined && t.max !== undefined) return `${t.min}–${t.max}${unit}`;
+    if (t.min !== undefined) return `min ${t.min}${unit}`;
+    if (t.max !== undefined) return `max ${t.max}${unit}`;
+    return "";
+  }
+  function metricWarn(value, key) {
+    const t = targets[key];
+    if (!t) return "";
+    if (t.min !== undefined && value < t.min) return " warn";
+    if (t.max !== undefined && value > t.max) return " warn";
+    return "";
+  }
   const ingredients = {
     turkey: {
       name: "Boar’s Head No Salt Added Turkey",
@@ -709,13 +732,14 @@
         resume = `<button id="resume" class="resume" type="button"><div>Resume ${db.templates[a.workout].name}<br><small>${esc(e.name)} · ${a.phase === "rest" ? "Resting" : "Set " + Math.min(a.session.filter((x) => x.id === e.id).length + 1, 2)}</small></div><div>→</div></button>`;
     }
     const cardioLabel = lc ? (lc.machine === "treadmill" ? (lc.mode === "walk" ? "Walk" : "Run") : "Bike") : "Log";
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button><button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} / ${targets.calories} kcal · ${r1(t.protein)} / ${targets.protein}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button><button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} kcal · ${r1(t.protein)}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
     stage.querySelector("#cardio").addEventListener("click", showCardio);
     stage.querySelector("#editWorkouts").addEventListener("click", showWorkoutEditor);
     stage.querySelector("#history").addEventListener("click", showHistory);
+    stage.querySelector("#mealHistory").addEventListener("click", () => showFood("today"));
     setPublishStamp();
     armBackgroundTimer();
   }
@@ -1021,7 +1045,7 @@
           : tab === "drinks"
             ? renderFoodList(drinks)
             : renderQuickAddForm() + renderToday(d);
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal">${Math.round(t.calories)}</div><div>${targets.calories} target</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal">${r1(t.protein)}g</div><div>${targets.protein}g target</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal">${r1(t.carbs)}g</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal">${r1(t.fat)}g</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal">${Math.round(t.sodium)}</div><div>mg</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal">${r1(t.fiber)}g</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">History</button></div><div class="library">${library}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricWarn(t.calories, "calories")}">${Math.round(t.calories)}</div><div>${targetLabel("calories")}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricWarn(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricWarn(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricWarn(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal${metricWarn(t.sodium, "sodium")}">${Math.round(t.sodium)}</div><div>${targetLabel("sodium")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricWarn(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">History</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
     stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));
@@ -1098,14 +1122,16 @@
     return `<form id="quickAddForm" class="form" style="display:flex;flex-direction:column;gap:8px">
       <strong>Quick add (one-off, not saved to a list)</strong>
       <input id="quickName" type="text" placeholder="Name" required>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <input id="quickCalories" type="number" inputmode="decimal" placeholder="Calories" required>
-        <input id="quickProtein" type="number" inputmode="decimal" step="0.1" placeholder="Protein (g)">
-        <input id="quickCarbs" type="number" inputmode="decimal" step="0.1" placeholder="Carbs (g)">
-        <input id="quickFat" type="number" inputmode="decimal" step="0.1" placeholder="Fat (g)">
-        <input id="quickSodium" type="number" inputmode="decimal" placeholder="Sodium (mg)">
-        <input id="quickFiber" type="number" inputmode="decimal" step="0.1" placeholder="Fiber (g)">
-      </div>
+      <input id="quickCalories" type="number" inputmode="decimal" placeholder="Calories" required>
+      <details><summary>+ Protein, carbs, fat, sodium, fiber</summary>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <input id="quickProtein" type="number" inputmode="decimal" step="0.1" placeholder="Protein (g)">
+          <input id="quickCarbs" type="number" inputmode="decimal" step="0.1" placeholder="Carbs (g)">
+          <input id="quickFat" type="number" inputmode="decimal" step="0.1" placeholder="Fat (g)">
+          <input id="quickSodium" type="number" inputmode="decimal" placeholder="Sodium (mg)">
+          <input id="quickFiber" type="number" inputmode="decimal" step="0.1" placeholder="Fiber (g)">
+        </div>
+      </details>
       <button class="submit" type="submit">Add</button>
     </form>`;
   }

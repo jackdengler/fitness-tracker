@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Fitness Tracker">
+  <rect width="1024" height="1024" fill="#171817"/>
+  <g stroke="#f2f2ef" stroke-width="46" stroke-linecap="round" fill="none">
+    <line x1="200" y1="512" x2="824" y2="512"/>
+    <line x1="200" y1="380" x2="200" y2="644"/>
+    <line x1="308" y1="420" x2="308" y2="604"/>
+    <line x1="824" y1="380" x2="824" y2="644"/>
+    <line x1="716" y1="420" x2="716" y2="604"/>
+  </g>
+</svg>

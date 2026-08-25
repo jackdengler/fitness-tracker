@@ -114,6 +114,7 @@
             weightLogs: [],
             waistLogs: [],
             workoutLogs: [],
+            cardioLogs: [],
             liftHistory: {},
             activeWorkout: null,
           },
@@ -319,6 +320,32 @@
       approx: true,
       note: "~13g sugar · 25% DV vitamin C",
     },
+    {
+      id: "oikostriplezero",
+      name: "Oikos Triple Zero",
+      serving: "1 cup",
+      calories: 85,
+      protein: 15,
+      carbs: 6.5,
+      fat: 0,
+      sodium: 55,
+      fiber: 0,
+      approx: true,
+      note: "Label range 80–90 cal, 6–7g carbs. Also 150mg calcium, 2mcg vitamin D, 150mg potassium, 5g sugar.",
+    },
+    {
+      id: "raspberries",
+      name: "Raspberries",
+      serving: "½ cup",
+      calories: 32,
+      protein: 0.7,
+      carbs: 7,
+      fat: 0.4,
+      sodium: 1,
+      fiber: 4,
+      approx: true,
+      note: "Fat, sodium, and fiber estimated from USDA raw-raspberry values for ~62g (not label-supplied).",
+    },
   ];
   const drinks = [
     {
@@ -397,6 +424,7 @@
             weightLogs: [],
             waistLogs: [],
             workoutLogs: [],
+            cardioLogs: [],
             liftHistory: {},
             activeWorkout: null,
           },
@@ -408,12 +436,15 @@
       weightLogs: [],
       waistLogs: [],
       workoutLogs: [],
+      cardioLogs: [],
       liftHistory: {},
       activeWorkout: null,
     };
   }
   let db = loadDB();
   let editingFoodId = null;
+  let cardioMachine = "treadmill";
+  let cardioMode = "run";
   function saveDB() {
     persistLocal();
     scheduleRemoteSync();
@@ -589,7 +620,8 @@
     phase = "home";
     const t = foodTotals(dayKey()),
       lw = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
-      lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+      lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
+      lc = db.cardioLogs.slice().sort((a, b) => b.ts - a.ts)[0];
     let resume = "";
     const a = db.activeWorkout;
     if (a && a.workout) {
@@ -597,10 +629,11 @@
       if (e)
         resume = `<button id="resume" class="resume" type="button"><div>Resume ${templates[a.workout].name}<br><small>${esc(e.name)} · ${a.phase === "rest" ? "Resting" : "Set " + Math.min(a.session.filter((x) => x.id === e.id).length + 1, 2)}</small></div><div>→</div></button>`;
     }
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label">Workout</div><div class="days"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} / ${targets.calories} kcal · ${r1(t.protein)} / ${targets.protein}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label">Workout</div><div class="days"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} / ${targets.calories} kcal · ${r1(t.protein)} / ${targets.protein}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button><button id="cardio" class="sectionTile" type="button"><strong>Cardio</strong><span>${lc ? formatCardioLine(lc) : "No cardio yet"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
+    stage.querySelector("#cardio").addEventListener("click", showCardio);
     stage.querySelector("#history").addEventListener("click", showHistory);
     setPublishStamp();
     armBackgroundTimer();
@@ -1196,6 +1229,95 @@
       .map(
         (it) =>
           `<div class="bodyRow"><strong>${esc(it.date)}</strong><span style="display:flex;align-items:center;gap:10px">${it.text}<button class="delete" data-delete-body="${it.kind}|${esc(it.date)}" type="button" aria-label="Delete">×</button></span></div>`,
+      )
+      .join("");
+  }
+  function formatCardioLine(c) {
+    const parts = [`${c.duration} min`];
+    if (c.machine === "treadmill") {
+      if (c.speed) parts.push(`${c.speed} mph`);
+      if (c.incline) parts.push(`${c.incline}% incline`);
+      return `${c.mode === "walk" ? "Walk" : "Run"} · ${parts.join(" · ")}`;
+    }
+    if (c.resistance) parts.push(`resistance ${c.resistance}`);
+    if (c.distance) parts.push(`${c.distance} mi`);
+    return `Bike · ${parts.join(" · ")}`;
+  }
+  function showCardio() {
+    stopTimer();
+    if (active()) saveActive();
+    phase = "cardio";
+    const isTread = cardioMachine === "treadmill";
+    const fields = isTread
+      ? `<div class="tabs" style="grid-template-columns:repeat(2,1fr)"><button type="button" data-mode="walk" class="${cardioMode === "walk" ? "active" : ""}">Walk</button><button type="button" data-mode="run" class="${cardioMode === "run" ? "active" : ""}">Run</button></div><input id="cardioDuration" type="number" inputmode="decimal" min="1" max="300" placeholder="Duration (min)" required><input id="cardioSpeed" type="number" inputmode="decimal" step="0.1" min="0" max="15" placeholder="Speed (mph)"><input id="cardioIncline" type="number" inputmode="decimal" step="0.5" min="0" max="20" placeholder="Incline (%)">`
+      : `<input id="cardioDuration" type="number" inputmode="decimal" min="1" max="300" placeholder="Duration (min)" required><input id="cardioResistance" type="number" inputmode="decimal" min="1" max="30" placeholder="Resistance level"><input id="cardioDistance" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Distance (mi, optional)">`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Cardio</div><button id="cardioBack" class="btn" type="button">Back</button></div><div class="tabs" style="grid-template-columns:repeat(2,1fr)"><button data-machine="treadmill" class="${isTread ? "active" : ""}" type="button">Treadmill</button><button data-machine="bike" class="${!isTread ? "active" : ""}" type="button">Bike</button></div><form id="cardioForm" class="form" style="display:flex;flex-direction:column;gap:8px">${fields}<button class="submit" type="submit">Save</button></form><div class="list">${renderCardioList()}</div></section>`;
+    stage.querySelector("#cardioBack").addEventListener("click", showHome);
+    stage.querySelectorAll("[data-machine]").forEach((b) =>
+      b.addEventListener("click", () => {
+        cardioMachine = b.dataset.machine;
+        showCardio();
+      }),
+    );
+    if (isTread) {
+      stage.querySelectorAll("[data-mode]").forEach((b) =>
+        b.addEventListener("click", () => {
+          cardioMode = b.dataset.mode;
+          showCardio();
+        }),
+      );
+    }
+    stage.querySelector("#cardioForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const duration = Number(stage.querySelector("#cardioDuration").value);
+      if (!Number.isFinite(duration) || duration <= 0) return;
+      const entry = {
+        id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
+        ts: Date.now(),
+        date: dayKey(),
+        machine: cardioMachine,
+        duration,
+      };
+      if (isTread) {
+        entry.mode = cardioMode;
+        const speed = Number(stage.querySelector("#cardioSpeed").value);
+        const incline = Number(stage.querySelector("#cardioIncline").value);
+        if (Number.isFinite(speed) && speed > 0) entry.speed = speed;
+        if (Number.isFinite(incline) && incline > 0) entry.incline = incline;
+      } else {
+        const resistance = Number(stage.querySelector("#cardioResistance").value);
+        const distance = Number(stage.querySelector("#cardioDistance").value);
+        if (Number.isFinite(resistance) && resistance > 0) entry.resistance = resistance;
+        if (Number.isFinite(distance) && distance > 0) entry.distance = distance;
+      }
+      db.cardioLogs.push(entry);
+      saveDB();
+      showCardio();
+    });
+    stage.querySelectorAll("[data-delete-cardio]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = b.dataset.deleteCardio;
+        const idx = db.cardioLogs.findIndex((x) => String(x.id) === id);
+        if (idx === -1) return;
+        const [removed] = db.cardioLogs.splice(idx, 1);
+        saveDB();
+        showCardio();
+        showUndoToast(`Deleted ${formatCardioLine(removed)}`, () => {
+          db.cardioLogs.splice(idx, 0, removed);
+          saveDB();
+          if (phase === "cardio") showCardio();
+        });
+      }),
+    );
+    armBackgroundTimer();
+  }
+  function renderCardioList() {
+    const rows = db.cardioLogs.slice().sort((a, b) => b.ts - a.ts);
+    if (!rows.length) return `<div class="setRow">No cardio yet.</div>`;
+    return rows
+      .map(
+        (c) =>
+          `<div class="setRow"><div><strong>${esc(c.date)}</strong><div>${esc(formatCardioLine(c))}</div></div><button class="delete" data-delete-cardio="${c.id}" type="button" aria-label="Delete">×</button></div>`,
       )
       .join("");
   }

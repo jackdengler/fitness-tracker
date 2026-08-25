@@ -294,15 +294,16 @@
       other: "1.5x the standard 2 tbsp label serving to reflect a heavy schmear.",
       approx: true,
     },
-    bellevanstenders: {
-      name: "Bell & Evans Organic Chicken Tenders",
-      serving: "6 oz",
-      calories: 270,
-      protein: 28.5,
-      carbs: 30,
-      fat: 3,
-      sodium: 420,
-      fiber: 1.5,
+    chickentenderbare: {
+      name: "Chicken Tenders (BARE/Pilgrim's)",
+      serving: "g",
+      calories: 1.828,
+      protein: 0.1828,
+      carbs: 0.1183,
+      fat: 0.0645,
+      sodium: 6.6667,
+      fiber: 0,
+      other: "Per-gram values from label: 93g (2 pieces) = 170 cal, 6g fat, 50mg cholesterol, 620mg sodium, 11g carb, 2g sugar, 17g protein.",
     },
     butterromainelettuceleaves: {
       name: "Butter/Romaine Lettuce Leaves",
@@ -334,14 +335,14 @@
       sodium: 2,
       fiber: 0.5,
     },
-    cavatzatziki: {
-      name: "CAVA Tzatziki",
+    honeymustarddressing: {
+      name: "Honey Mustard Yogurt Dressing (Bolthouse Farms)",
       serving: "2 tbsp",
-      calories: 33,
-      protein: 2,
-      carbs: 1.5,
+      calories: 45,
+      protein: 1,
+      carbs: 5,
       fat: 2,
-      sodium: 90,
+      sodium: 115,
       fiber: 0,
     },
     groundbeef937: {
@@ -559,18 +560,18 @@
       ingredientIds: ["egg", "egg", "oliveoildrizzle", "saltpinch", "blackpepper", "cholulahotsauce", "everythingbagelseasoning"],
     },
     {
-      id: "chicken-tzatziki-lettuce-wraps",
-      name: "Chicken Tzatziki Lettuce Wraps",
-      serving: "Whole recipe (6 oz chicken, 8 lettuce wraps)",
-      calories: 356,
-      protein: 33,
-      carbs: 44,
-      fat: 5,
-      sodium: 523,
-      fiber: 4.5,
+      id: "chicken-honey-mustard-wrap",
+      name: "Chicken Honey Mustard Wrap",
+      serving: "170g chicken, 8 lettuce wraps, honey mustard dressing",
+      calories: 409,
+      protein: 34.1,
+      carbs: 37.1,
+      fat: 13,
+      sodium: 1261,
+      fiber: 3.5,
       approx: true,
-      note: "CAVA-style: Bell & Evans chicken tenders, butter/romaine lettuce as the wrap, diced tomato, chopped red onion, CAVA tzatziki. Totals are the sum of the 5 listed ingredients.",
-      ingredientIds: ["bellevanstenders", "butterromainelettuceleaves", "tomatomedium", "redonionquartercup", "cavatzatziki"],
+      note: "Chicken is a per-gram ingredient — edit its qty to the exact grams you used and the total recalculates. Default here is 170g (~6 oz, 2 tenders). Butter/romaine lettuce is the wrap, plus diced tomato, chopped red onion, and Bolthouse honey mustard yogurt dressing.",
+      ingredientIds: [["chickentenderbare", 170], "butterromainelettuceleaves", "tomatomedium", "redonionquartercup", "honeymustarddressing"],
     },
     {
       id: "bagel-cream-cheese",
@@ -1397,14 +1398,19 @@
       <button class="submit" type="submit">Add</button>
     </form>`;
   }
+  function ingredientSpec(spec) {
+    return Array.isArray(spec) ? { id: spec[0], qty: spec[1] } : { id: spec, qty: 1 };
+  }
   function renderFoodList(list) {
     return list
       .map((m) => {
         const details = m.ingredientIds
           ? m.ingredientIds
-              .map((id) => {
+              .map((spec) => {
+                const { id, qty } = ingredientSpec(spec);
                 const f = ingredients[id];
-                return `<div class="ingredientMini"><span>${esc(f.name)} · ${esc(f.serving)}</span><span>${f.calories} cal</span></div>`;
+                const label = f.serving === "g" ? `${qty}g` : qty !== 1 ? `${qty}× ${f.serving}` : f.serving;
+                return `<div class="ingredientMini"><span>${esc(f.name)} · ${esc(label)}</span><span>${Math.round((f.calories || 0) * qty)} cal</span></div>`;
               })
               .join("")
           : m.ingredientText
@@ -1436,7 +1442,8 @@
       incomplete: !!m.incomplete,
     };
     if (m.ingredientIds) {
-      entry.ingredients = m.ingredientIds.map((ingId) => {
+      entry.ingredients = m.ingredientIds.map((spec) => {
+        const { id: ingId, qty } = ingredientSpec(spec);
         const f = ingredients[ingId];
         return {
           id: ingId,
@@ -1448,7 +1455,7 @@
           fat: f.fat || 0,
           sodium: f.sodium || 0,
           fiber: f.fiber || 0,
-          qty: 1,
+          qty,
         };
       });
     }

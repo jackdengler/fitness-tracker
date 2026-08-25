@@ -120,6 +120,7 @@
           },
           remote,
         );
+        ensureTemplates();
         persistLocal();
         if (phase === "home") showHome();
       } else {
@@ -335,14 +336,14 @@
       id: "fatboyicecreamsandwich",
       name: "Fat Boy Vanilla Ice Cream Sandwich",
       serving: "1 sandwich",
-      calories: 160,
+      calories: 210,
       protein: 3,
       carbs: 28,
       fat: 5,
       sodium: 105,
       fiber: 1,
       approx: true,
-      note: "~15g sugar. Typical packaging values — check the box for your exact SKU.",
+      note: "Calories per label (210). Protein/carbs/fat/sodium/fiber are still typical estimates, not from this SKU's label.",
     },
     {
       id: "outshinestrawberrypopsicle",
@@ -425,7 +426,7 @@
       note: "Isopure Zero Carb ready-to-drink bottle — typical label values, varies a bit by flavor.",
     },
   ];
-  const templates = {
+  const DEFAULT_TEMPLATES = {
     A: {
       name: "Workout A",
       ex: [
@@ -491,10 +492,34 @@
       activeWorkout: null,
     };
   }
+  function cloneTemplates(src) {
+    const out = {};
+    for (const k in src) out[k] = { name: src[k].name, ex: src[k].ex.map((x) => x.slice()) };
+    return out;
+  }
+  function buildDefaultArchive() {
+    const seen = {},
+      arr = [];
+    Object.values(DEFAULT_TEMPLATES).forEach((t) =>
+      t.ex.forEach(([id, name, target, rest, type]) => {
+        if (seen[id]) return;
+        seen[id] = true;
+        arr.push({ id, name, target, rest, type });
+      }),
+    );
+    return arr;
+  }
+  function ensureTemplates() {
+    if (!db.templates) db.templates = cloneTemplates(DEFAULT_TEMPLATES);
+    if (!db.exerciseArchive) db.exerciseArchive = buildDefaultArchive();
+  }
   let db = loadDB();
+  ensureTemplates();
   let editingFoodId = null;
   let cardioMachine = "treadmill";
   let cardioMode = "run";
+  let editorDay = "A";
+  let swappingExIdx = null;
   function saveDB() {
     persistLocal();
     scheduleRemoteSync();
@@ -550,7 +575,7 @@
     }
   }
   function clone(k) {
-    return templates[k].ex.map((x) => ({
+    return db.templates[k].ex.map((x) => ({
       id: x[0],
       name: x[1],
       target: x[2],
@@ -677,13 +702,14 @@
     if (a && a.workout) {
       const e = a.order[a.exerciseIndex];
       if (e)
-        resume = `<button id="resume" class="resume" type="button"><div>Resume ${templates[a.workout].name}<br><small>${esc(e.name)} · ${a.phase === "rest" ? "Resting" : "Set " + Math.min(a.session.filter((x) => x.id === e.id).length + 1, 2)}</small></div><div>→</div></button>`;
+        resume = `<button id="resume" class="resume" type="button"><div>Resume ${db.templates[a.workout].name}<br><small>${esc(e.name)} · ${a.phase === "rest" ? "Resting" : "Set " + Math.min(a.session.filter((x) => x.id === e.id).length + 1, 2)}</small></div><div>→</div></button>`;
     }
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label">Workout</div><div class="days"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button></div><button id="cardio" class="resume" type="button"><div>Cardio<br><small>${lc ? formatCardioLine(lc) : "Log a session"}</small></div><div>→</div></button><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} / ${targets.calories} kcal · ${r1(t.protein)} / ${targets.protein}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button></div><button id="cardio" class="resume" type="button"><div>Cardio<br><small>${lc ? formatCardioLine(lc) : "Log a session"}</small></div><div>→</div></button><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} / ${targets.calories} kcal · ${r1(t.protein)} / ${targets.protein}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
     stage.querySelector("#cardio").addEventListener("click", showCardio);
+    stage.querySelector("#editWorkouts").addEventListener("click", showWorkoutEditor);
     stage.querySelector("#history").addEventListener("click", showHistory);
     setPublishStamp();
     armBackgroundTimer();
@@ -943,7 +969,7 @@
     const ended = Date.now(),
       log = {
         id: Date.now(),
-        name: templates[workout].name,
+        name: db.templates[workout].name,
         date: new Date(ended).toISOString(),
         duration: Math.max(1, Math.round((ended - startedAt) / 60000)),
         sets: session.map((x) => ({ id: x.id, name: x.name, set: x.set, weight: x.weight, reps: x.reps })),
@@ -1423,10 +1449,14 @@
     stopTimer();
     if (active()) saveActive();
     phase = "history";
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${db.workoutLogs.length ? db.workoutLogs.slice().reverse().map((l) => `<div class="setRow"><div><strong>${esc(l.name)}</strong><div>${new Date(l.date).toLocaleDateString()}</div></div><div style="display:flex;align-items:center;gap:10px"><span>${l.sets.length} sets · ${l.duration} min</span><button class="delete" data-delete-workout="${l.id}" type="button" aria-label="Delete">×</button></div></div>`).join("") : `<div class="setRow">No workouts yet.</div>`}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${db.workoutLogs.length ? db.workoutLogs.slice().reverse().map((l) => `<div class="setRow" data-view-workout="${l.id}" style="cursor:pointer"><div><strong>${esc(l.name)}</strong><div>${new Date(l.date).toLocaleDateString()}</div></div><div style="display:flex;align-items:center;gap:10px"><span>${l.sets.length} sets · ${l.duration} min</span><button class="delete" data-delete-workout="${l.id}" type="button" aria-label="Delete">×</button></div></div>`).join("") : `<div class="setRow">No workouts yet.</div>`}</div></section>`;
     stage.querySelector("#historyBack").addEventListener("click", showHome);
+    stage.querySelectorAll("[data-view-workout]").forEach((el) =>
+      el.addEventListener("click", () => showWorkoutDetail(el.dataset.viewWorkout)),
+    );
     stage.querySelectorAll("[data-delete-workout]").forEach((b) =>
-      b.addEventListener("click", () => {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
         const id = String(b.dataset.deleteWorkout);
         const idx = db.workoutLogs.findIndex((l) => String(l.id) === id);
         if (idx === -1) return;
@@ -1440,6 +1470,134 @@
         });
       }),
     );
+    armBackgroundTimer();
+  }
+  function showWorkoutDetail(id) {
+    stopTimer();
+    phase = "workoutDetail";
+    const log = db.workoutLogs.find((l) => String(l.id) === String(id));
+    if (!log) return showHistory();
+    const groups = [];
+    const byId = {};
+    log.sets.forEach((s) => {
+      if (!byId[s.id]) {
+        byId[s.id] = { name: s.name, sets: [] };
+        groups.push(byId[s.id]);
+      }
+      byId[s.id].sets.push(s);
+    });
+    const rows = groups
+      .map(
+        (g) =>
+          `<div class="setRow" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>${esc(g.name)}</strong>${g.sets.map((s) => `<div>Set ${s.set}: ${s.weight === 0 ? "BW" : s.weight + " lb"} × ${s.reps}</div>`).join("")}</div>`,
+      )
+      .join("");
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}</div></section>`;
+    stage.querySelector("#detailBack").addEventListener("click", showHistory);
+    armBackgroundTimer();
+  }
+  function slugify(name) {
+    const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24) || "exercise";
+    let id = base,
+      n = 2;
+    while (db.exerciseArchive.some((x) => x.id === id)) {
+      id = base + n;
+      n++;
+    }
+    return id;
+  }
+  function showWorkoutEditor() {
+    stopTimer();
+    if (active()) saveActive();
+    phase = "editor";
+    swappingExIdx = null;
+    renderWorkoutEditor();
+  }
+  function renderWorkoutEditor() {
+    const day = db.templates[editorDay];
+    const inDay = new Set(day.ex.map((x) => x[0]));
+    const available = db.exerciseArchive.filter((a) => !inDay.has(a.id));
+    const rows = day.ex
+      .map((ex, i) => {
+        if (i === swappingExIdx) {
+          return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><strong>Swap ${esc(ex[1])} for…</strong><select id="swapPick">${available.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select><div style="display:flex;gap:8px"><button class="submit" style="margin-top:0" data-confirm-swap="${i}" type="button">Confirm</button><button class="btn" data-cancel-swap type="button">Cancel</button></div></div>`;
+        }
+        return `<div class="setRow"><div><strong>${esc(ex[1])}</strong><div>${ex[2]} reps · ${ex[3]}s rest</div></div><div style="display:flex;gap:8px"><button class="btn" data-swap-ex="${i}" type="button">Swap</button><button class="delete" data-remove-ex="${i}" type="button" aria-label="Remove">×</button></div></div>`;
+      })
+      .join("");
+    const addOptions = available.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("");
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Edit Workouts</div><button id="editorBack" class="btn" type="button">Back</button></div><div class="tabs" style="grid-template-columns:repeat(3,1fr)"><button data-day="A" class="${editorDay === "A" ? "active" : ""}" type="button">A</button><button data-day="B" class="${editorDay === "B" ? "active" : ""}" type="button">B</button><button data-day="C" class="${editorDay === "C" ? "active" : ""}" type="button">C</button></div><div class="library">${rows || `<div class="setRow">No exercises — add one below.</div>`}<form id="addFromArchiveForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>Add from archive</strong>${available.length ? `<select id="archivePick">${addOptions}</select><button class="submit" type="submit">Add</button>` : `<div class="note">Every archived exercise is already in ${editorDay}.</div>`}</form><form id="addCustomForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>New custom exercise</strong><input id="newExName" type="text" placeholder="Name" required><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="newExTarget" type="number" inputmode="decimal" value="12" placeholder="Target reps"><input id="newExRest" type="number" inputmode="decimal" value="90" placeholder="Rest (sec)"></div><select id="newExType"><option value="upper">Upper body</option><option value="lower">Lower body</option><option value="small">Small / isolation</option><option value="body">Bodyweight</option></select><button class="submit" type="submit">Add to archive + ${editorDay}</button></form></div></section>`;
+    stage.querySelector("#editorBack").addEventListener("click", showHome);
+    stage.querySelectorAll("[data-day]").forEach((b) =>
+      b.addEventListener("click", () => {
+        editorDay = b.dataset.day;
+        swappingExIdx = null;
+        renderWorkoutEditor();
+      }),
+    );
+    stage.querySelectorAll("[data-swap-ex]").forEach((b) =>
+      b.addEventListener("click", () => {
+        swappingExIdx = Number(b.dataset.swapEx);
+        renderWorkoutEditor();
+      }),
+    );
+    stage.querySelectorAll("[data-cancel-swap]").forEach((b) =>
+      b.addEventListener("click", () => {
+        swappingExIdx = null;
+        renderWorkoutEditor();
+      }),
+    );
+    stage.querySelectorAll("[data-confirm-swap]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const i = Number(b.dataset.confirmSwap);
+        const pick = stage.querySelector("#swapPick")?.value;
+        const a = db.exerciseArchive.find((x) => x.id === pick);
+        if (!a) return;
+        db.templates[editorDay].ex[i] = [a.id, a.name, a.target, a.rest, a.type];
+        swappingExIdx = null;
+        saveDB();
+        renderWorkoutEditor();
+      }),
+    );
+    stage.querySelectorAll("[data-remove-ex]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const i = Number(b.dataset.removeEx);
+        const d = db.templates[editorDay];
+        const [removed] = d.ex.splice(i, 1);
+        saveDB();
+        renderWorkoutEditor();
+        showUndoToast(`Removed ${removed[1]} from ${editorDay}`, () => {
+          d.ex.splice(i, 0, removed);
+          saveDB();
+          if (phase === "editor") renderWorkoutEditor();
+        });
+      }),
+    );
+    const archiveForm = stage.querySelector("#addFromArchiveForm");
+    if (available.length) {
+      archiveForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const pick = stage.querySelector("#archivePick")?.value;
+        const a = db.exerciseArchive.find((x) => x.id === pick);
+        if (!a) return;
+        db.templates[editorDay].ex.push([a.id, a.name, a.target, a.rest, a.type]);
+        saveDB();
+        renderWorkoutEditor();
+      });
+    }
+    stage.querySelector("#addCustomForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = (stage.querySelector("#newExName").value || "").trim();
+      if (!name) return;
+      const target = Number(stage.querySelector("#newExTarget").value) || 12;
+      const rest = Number(stage.querySelector("#newExRest").value) || 90;
+      const type = stage.querySelector("#newExType").value;
+      const id = slugify(name);
+      db.exerciseArchive.push({ id, name, target, rest, type });
+      db.templates[editorDay].ex.push([id, name, target, rest, type]);
+      saveDB();
+      renderWorkoutEditor();
+    });
     armBackgroundTimer();
   }
   document.addEventListener("visibilitychange", () => {

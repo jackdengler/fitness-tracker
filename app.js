@@ -2,10 +2,7 @@
   const root = document.getElementById("fitness-tracker-v13");
   if (!root || root.dataset.ready) return;
   root.dataset.ready = "1";
-  const stage = root.querySelector("#stage"),
-    topbar = root.querySelector("#topbar"),
-    bar = root.querySelector("#bar"),
-    homeBtn = root.querySelector("#homeBtn");
+  const stage = root.querySelector("#stage");
   const STORAGE_KEY = "fitnessTrackerV13";
 
   // --- Remote sync (private-data-storage via the GitHub Contents API) ---
@@ -143,7 +140,7 @@
   });
   // --- end remote sync ---
 
-  const targets = { calories: 2450, protein: 180 };
+  const targets = { calories: 2000, protein: 180 };
   const ingredients = {
     turkey: {
       name: "Boar’s Head No Salt Added Turkey",
@@ -249,54 +246,6 @@
       other: "Sodium and fiber not supplied",
       approx: true,
     },
-    fatboyicecreamsandwich: {
-      name: "Fat Boy Vanilla Ice Cream Sandwich",
-      serving: "1 sandwich",
-      calories: 160,
-      protein: 3,
-      carbs: 28,
-      fat: 5,
-      sodium: 105,
-      fiber: 1,
-      other: "~15g sugar. Typical packaging values — check the box for your exact SKU.",
-      approx: true,
-    },
-    outshinestrawberrypopsicle: {
-      name: "Outshine Strawberry Fruit Bar",
-      serving: "1 bar",
-      calories: 60,
-      protein: 1,
-      carbs: 15,
-      fat: 0,
-      sodium: 5,
-      fiber: 1,
-      other: "~13g sugar · 25% DV vitamin C",
-      approx: true,
-    },
-    flatwhite: {
-      name: "Flat White",
-      serving: "Grande (16 fl oz), 2% milk",
-      calories: 170,
-      protein: 9,
-      carbs: 13,
-      fat: 9,
-      sodium: 105,
-      fiber: 0,
-      other: "Starbucks-style estimate — varies with milk type, size, and shots.",
-      approx: true,
-    },
-    americano: {
-      name: "Americano",
-      serving: "Grande (16 fl oz), black",
-      calories: 15,
-      protein: 1,
-      carbs: 3,
-      fat: 0,
-      sodium: 10,
-      fiber: 0,
-      other: "Black coffee estimate — add milk/sugar separately if used. Varies with size and shots.",
-      approx: true,
-    },
   };
   const meals = [
     {
@@ -342,6 +291,62 @@
         "115 calories edamame",
         "Half of Korean beef sauce/base recipe",
       ],
+    },
+  ];
+  const snacks = [
+    {
+      id: "fatboyicecreamsandwich",
+      name: "Fat Boy Vanilla Ice Cream Sandwich",
+      serving: "1 sandwich",
+      calories: 160,
+      protein: 3,
+      carbs: 28,
+      fat: 5,
+      sodium: 105,
+      fiber: 1,
+      approx: true,
+      note: "~15g sugar. Typical packaging values — check the box for your exact SKU.",
+    },
+    {
+      id: "outshinestrawberrypopsicle",
+      name: "Outshine Strawberry Fruit Bar",
+      serving: "1 bar",
+      calories: 60,
+      protein: 1,
+      carbs: 15,
+      fat: 0,
+      sodium: 5,
+      fiber: 1,
+      approx: true,
+      note: "~13g sugar · 25% DV vitamin C",
+    },
+  ];
+  const drinks = [
+    {
+      id: "flatwhite",
+      name: "Flat White",
+      serving: "Grande (16 fl oz), 2% milk",
+      calories: 170,
+      protein: 9,
+      carbs: 13,
+      fat: 9,
+      sodium: 105,
+      fiber: 0,
+      approx: true,
+      note: "Starbucks-style estimate — varies with milk type, size, and shots.",
+    },
+    {
+      id: "americano",
+      name: "Americano",
+      serving: "Grande (16 fl oz), black",
+      calories: 15,
+      protein: 1,
+      carbs: 3,
+      fat: 0,
+      sodium: 10,
+      fiber: 0,
+      approx: true,
+      note: "Black coffee estimate — add milk/sugar separately if used. Varies with size and shots.",
     },
   ];
   const templates = {
@@ -485,12 +490,6 @@
   function active() {
     return workout && ["set", "rest", "swap"].includes(phase);
   }
-  function progress() {
-    bar.style.width =
-      workout && order.length
-        ? Math.min(100, (session.length / (order.length * 2)) * 100) + "%"
-        : "0%";
-  }
   function audio() {
     try {
       if (!audioContext) {
@@ -564,11 +563,31 @@
     db.activeWorkout = null;
     saveDB();
   }
+  let undoTimer = null;
+  function clearUndoToast() {
+    if (undoTimer) {
+      clearTimeout(undoTimer);
+      undoTimer = null;
+    }
+    root.querySelector("#undoToast")?.remove();
+  }
+  function showUndoToast(message, restore) {
+    clearUndoToast();
+    const el = document.createElement("div");
+    el.id = "undoToast";
+    el.className = "undoToast";
+    el.innerHTML = `<span>${esc(message)}</span><button type="button" data-undo>Undo</button>`;
+    el.querySelector("[data-undo]").addEventListener("click", () => {
+      clearUndoToast();
+      restore();
+    });
+    root.appendChild(el);
+    undoTimer = setTimeout(clearUndoToast, 5000);
+  }
   function showHome() {
     stopTimer();
     if (active()) saveActive();
     phase = "home";
-    topbar.hidden = true;
     const t = foodTotals(dayKey()),
       lw = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
       lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -579,12 +598,38 @@
       if (e)
         resume = `<button id="resume" class="resume" type="button"><div>Resume ${templates[a.workout].name}<br><small>${esc(e.name)} · ${a.phase === "rest" ? "Resting" : "Set " + Math.min(a.session.filter((x) => x.id === e.id).length + 1, 2)}</small></div><div>→</div></button>`;
     }
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label">Workout</div><div class="days"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} / ${targets.calories} kcal · ${r1(t.protein)} / ${targets.protein}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label">Workout</div><div class="days"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} / ${targets.calories} kcal · ${r1(t.protein)} / ${targets.protein}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
     stage.querySelector("#history").addEventListener("click", showHistory);
+    setPublishStamp();
     armBackgroundTimer();
+  }
+  async function setPublishStamp() {
+    let when = null;
+    try {
+      const res = await fetch("./build.json", { cache: "no-cache" });
+      if (res.ok) {
+        const info = await res.json();
+        const d = info?.builtAt ? new Date(info.builtAt) : null;
+        if (d && !Number.isNaN(d.valueOf())) when = d;
+      }
+    } catch (e) {}
+    const el = root.querySelector("#publishTime");
+    if (!el || !when) return;
+    const ptFmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const ptDateFmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      day: "numeric",
+    });
+    el.textContent = `published ${ptDateFmt.format(when)} · ${ptFmt.format(when)} PT`;
   }
   function restore() {
     const a = db.activeWorkout;
@@ -602,8 +647,6 @@
     restDone = a.restDone;
     lastLogged = a.lastLogged ? { ...a.lastLogged } : null;
     pendingWeight = a.selectedWeight ?? null;
-    topbar.hidden = false;
-    progress();
     if (a.phase === "rest") {
       phase = "rest";
       if (a.expired || (!paused && deadline !== null && deadline <= Date.now())) {
@@ -633,8 +676,6 @@
     pendingWeight = null;
     locked = false;
     phase = "set";
-    topbar.hidden = false;
-    progress();
     saveActive();
     showSet();
   }
@@ -703,7 +744,6 @@
     lastLogged = entry;
     db.liftHistory[e.id] = { weight, reps };
     saveDB();
-    progress();
     if (session.length >= order.length * 2) return finish();
     restDone = complete(e.id);
     phase = "rest";
@@ -831,7 +871,6 @@
     workout = null;
     order = [];
     phase = "done";
-    topbar.hidden = true;
     stage.innerHTML = `<section class="done"><strong>Done.</strong><div>${log.sets.length} sets · ${log.duration} min · saved</div><button id="doneHome" class="submit" type="button">Home</button></section>`;
     stage.querySelector("#doneHome").addEventListener("click", showHome);
   }
@@ -859,21 +898,29 @@
     if (active()) saveActive();
     if (tab !== "today") editingFoodId = null;
     phase = "food";
-    topbar.hidden = true;
     const d = dayKey(),
       t = foodTotals(d),
       count = db.foodLogs.filter((x) => x.date === d).length;
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal">${Math.round(t.calories)}</div><div>${targets.calories} target</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal">${r1(t.protein)}g</div><div>${targets.protein}g target</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal">${r1(t.carbs)}g</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal">${r1(t.fat)}g</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal">${Math.round(t.sodium)}</div><div>mg</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal">${r1(t.fiber)}g</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="ingredients" class="${tab === "ingredients" ? "active" : ""}" type="button">Ingredients</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">Today · ${count}</button></div><div class="library">${tab === "meals" ? renderMeals() : tab === "ingredients" ? renderIngredients() : renderToday(d)}</div></section>`;
+    const library =
+      tab === "meals" ? renderFoodList(meals) : tab === "snacks" ? renderFoodList(snacks) : tab === "drinks" ? renderFoodList(drinks) : renderToday(d);
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal">${Math.round(t.calories)}</div><div>${targets.calories} target</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal">${r1(t.protein)}g</div><div>${targets.protein}g target</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal">${r1(t.carbs)}g</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal">${r1(t.fat)}g</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal">${Math.round(t.sodium)}</div><div>mg</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal">${r1(t.fiber)}g</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">Today · ${count}</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
-    stage.querySelectorAll("[data-add-meal]").forEach((b) => b.addEventListener("click", () => addMeal(b.dataset.addMeal)));
-    stage.querySelectorAll("[data-add-ingredient]").forEach((b) => b.addEventListener("click", () => addIngredient(b.dataset.addIngredient)));
+    stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
       b.addEventListener("click", () => {
-        db.foodLogs = db.foodLogs.filter((x) => String(x.id) !== b.dataset.deleteFood);
-        if (editingFoodId === b.dataset.deleteFood) editingFoodId = null;
+        const id = b.dataset.deleteFood;
+        const idx = db.foodLogs.findIndex((x) => String(x.id) === id);
+        if (idx === -1) return;
+        const [removed] = db.foodLogs.splice(idx, 1);
+        if (editingFoodId === id) editingFoodId = null;
         saveDB();
         showFood("today");
+        showUndoToast(`Deleted ${removed.name}`, () => {
+          db.foodLogs.splice(idx, 0, removed);
+          saveDB();
+          if (phase === "food") showFood("today");
+        });
       }),
     );
     stage.querySelectorAll("[data-edit-food]").forEach((b) =>
@@ -893,29 +940,32 @@
     );
     armBackgroundTimer();
   }
-  function renderMeals() {
-    return meals
-      .map(
-        (m) =>
-          `<div class="mealCard"><div class="mealTop"><div><div class="foodName">${esc(m.name)}${m.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(m.serving)}</div><div class="macroLine">${macroLine(m)}</div><div class="note">${esc(m.note)}</div></div><button class="add" data-add-meal="${m.id}" type="button">Add</button></div><details><summary>Ingredients</summary>${m.ingredientIds ? m.ingredientIds.map((id) => { const f = ingredients[id]; return `<div class="ingredientMini"><span>${esc(f.name)} · ${esc(f.serving)}</span><span>${f.calories} cal</span></div>`; }).join("") : m.ingredientText.map((x) => `<div class="ingredientMini"><span>${esc(x)}</span><span></span></div>`).join("")}</details></div>`,
-      )
+  function renderFoodList(list) {
+    return list
+      .map((m) => {
+        const details = m.ingredientIds
+          ? m.ingredientIds
+              .map((id) => {
+                const f = ingredients[id];
+                return `<div class="ingredientMini"><span>${esc(f.name)} · ${esc(f.serving)}</span><span>${f.calories} cal</span></div>`;
+              })
+              .join("")
+          : m.ingredientText
+            ? m.ingredientText.map((x) => `<div class="ingredientMini"><span>${esc(x)}</span><span></span></div>`).join("")
+            : "";
+        return `<div class="mealCard"><div class="mealTop"><div><div class="foodName">${esc(m.name)}${m.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(m.serving)}</div><div class="macroLine">${macroLine(m)}</div>${m.note ? `<div class="note">${esc(m.note)}</div>` : ""}</div><button class="add" data-add-food="${m.id}" type="button">Add</button></div>${details ? `<details><summary>Ingredients</summary>${details}</details>` : ""}</div>`;
+      })
       .join("");
   }
-  function renderIngredients() {
-    return Object.entries(ingredients)
-      .map(
-        ([id, f]) =>
-          `<div class="foodRow"><div class="foodTop"><div><div class="foodName">${esc(f.name)}</div><div class="serving">${esc(f.serving)}${f.approx ? " · approximate" : ""}</div><div class="macroLine">${f.calories} cal · ${f.protein}g P · ${f.carbsDisplay || f.carbs}g C · ${f.fat}g F · ${f.sodium === null ? "—" : f.sodium + "mg"} Na · ${f.fiber === null ? "—" : f.fiber + "g"} fiber</div><div class="note">${esc(f.other)}</div></div><button class="add" data-add-ingredient="${id}" type="button">Add</button></div></div>`,
-      )
-      .join("");
+  function findFoodItem(id) {
+    return meals.find((x) => x.id === id) || snacks.find((x) => x.id === id) || drinks.find((x) => x.id === id) || null;
   }
-  function addMeal(id) {
-    const m = meals.find((x) => x.id === id);
+  function addFoodItem(id) {
+    const m = findFoodItem(id);
     if (!m) return;
     db.foodLogs.push({
       id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
       date: dayKey(),
-      kind: "meal",
       refId: m.id,
       name: m.name,
       serving: m.serving,
@@ -923,31 +973,10 @@
       protein: m.protein,
       carbs: m.carbs,
       fat: m.fat,
-      sodium: m.sodium,
-      fiber: m.fiber,
+      sodium: m.sodium || 0,
+      fiber: m.fiber || 0,
       approx: !!m.approx,
       incomplete: !!m.incomplete,
-    });
-    saveDB();
-    showFood("today");
-  }
-  function addIngredient(id) {
-    const f = ingredients[id];
-    if (!f) return;
-    db.foodLogs.push({
-      id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
-      date: dayKey(),
-      kind: "ingredient",
-      refId: id,
-      name: f.name,
-      serving: f.serving,
-      calories: f.calories,
-      protein: f.protein,
-      carbs: f.carbs,
-      fat: f.fat,
-      sodium: f.sodium || 0,
-      fiber: f.fiber || 0,
-      approx: !!f.approx,
     });
     saveDB();
     showFood("today");
@@ -1004,12 +1033,11 @@
     stopTimer();
     if (active()) saveActive();
     phase = "body";
-    topbar.hidden = true;
     const d = dayKey(),
       tw = db.weightLogs.find((x) => x.date === d),
       lw = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
       lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">Body</div><button id="bodyBack" class="btn" type="button">Back</button></div><div class="metrics" style="grid-template-columns:1fr 1fr"><div class="metric"><div class="metricName">Latest weight</div><div class="metricVal">${lw ? Number(lw.weight).toFixed(1) : "—"}</div><div>lb</div></div><div class="metric"><div class="metricName">Latest waist</div><div class="metricVal">${lwa ? Number(lwa.waist).toFixed(1) : "—"}</div><div>in</div></div></div><div class="bodyForms"><form id="weightForm" class="form"><strong>Daily weight</strong><input id="weightInput" type="number" min="100" max="400" step="0.1" value="${tw ? tw.weight : ""}" placeholder="Weight (lb)" required><button class="submit" type="submit">Save</button></form><form id="waistForm" class="form"><strong>Weekly waist</strong><input id="waistInput" type="number" min="20" max="80" step="0.1" placeholder="Waist at navel (in)" required><button class="submit" type="submit">Save</button></form></div><div class="list">${renderBody()}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">Body</div><button id="bodyBack" class="btn" type="button">Back</button></div><div class="metrics" style="grid-template-columns:1fr 1fr"><div class="metric"><div class="metricName">Latest weight</div><div class="metricVal">${lw ? Number(lw.weight).toFixed(1) : "—"}</div><div>lb</div></div><div class="metric"><div class="metricName">Latest waist</div><div class="metricVal">${lwa ? Number(lwa.waist).toFixed(1) : "—"}</div><div>in</div></div></div><div class="bodyForms"><form id="weightForm" class="form"><strong>Daily weight</strong><input id="weightInput" type="number" inputmode="decimal" min="100" max="400" step="0.1" value="${tw ? tw.weight : ""}" placeholder="Weight (lb)" required><button class="submit" type="submit">Save</button></form><form id="waistForm" class="form"><strong>Weekly waist</strong><input id="waistInput" type="number" inputmode="decimal" min="20" max="80" step="0.1" placeholder="Waist at navel (in)" required><button class="submit" type="submit">Save</button></form></div><div class="list">${renderBody()}</div></section>`;
     stage.querySelector("#bodyBack").addEventListener("click", showHome);
     stage.querySelector("#weightForm").addEventListener("submit", (e) => {
       e.preventDefault();
@@ -1049,9 +1077,23 @@
     stopTimer();
     if (active()) saveActive();
     phase = "history";
-    topbar.hidden = true;
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${db.workoutLogs.length ? db.workoutLogs.slice().reverse().map((l) => `<div class="setRow"><div><strong>${esc(l.name)}</strong><div>${new Date(l.date).toLocaleDateString()}</div></div><div>${l.sets.length} sets · ${l.duration} min</div></div>`).join("") : `<div class="setRow">No workouts yet.</div>`}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${db.workoutLogs.length ? db.workoutLogs.slice().reverse().map((l) => `<div class="setRow"><div><strong>${esc(l.name)}</strong><div>${new Date(l.date).toLocaleDateString()}</div></div><div style="display:flex;align-items:center;gap:10px"><span>${l.sets.length} sets · ${l.duration} min</span><button class="delete" data-delete-workout="${l.id}" type="button" aria-label="Delete">×</button></div></div>`).join("") : `<div class="setRow">No workouts yet.</div>`}</div></section>`;
     stage.querySelector("#historyBack").addEventListener("click", showHome);
+    stage.querySelectorAll("[data-delete-workout]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = String(b.dataset.deleteWorkout);
+        const idx = db.workoutLogs.findIndex((l) => String(l.id) === id);
+        if (idx === -1) return;
+        const [removed] = db.workoutLogs.splice(idx, 1);
+        saveDB();
+        showHistory();
+        showUndoToast(`Deleted ${removed.name}`, () => {
+          db.workoutLogs.splice(idx, 0, removed);
+          saveDB();
+          if (phase === "history") showHistory();
+        });
+      }),
+    );
     armBackgroundTimer();
   }
   document.addEventListener("visibilitychange", () => {
@@ -1061,6 +1103,5 @@
     const b = e.target.closest("[data-start]");
     if (b) start(b.dataset.start);
   });
-  homeBtn.addEventListener("click", showHome);
   showHome();
 })();

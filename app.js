@@ -249,6 +249,54 @@
       other: "Sodium and fiber not supplied",
       approx: true,
     },
+    fatboyicecreamsandwich: {
+      name: "Fat Boy Vanilla Ice Cream Sandwich",
+      serving: "1 sandwich",
+      calories: 160,
+      protein: 3,
+      carbs: 28,
+      fat: 5,
+      sodium: 105,
+      fiber: 1,
+      other: "~15g sugar. Typical packaging values — check the box for your exact SKU.",
+      approx: true,
+    },
+    outshinestrawberrypopsicle: {
+      name: "Outshine Strawberry Fruit Bar",
+      serving: "1 bar",
+      calories: 60,
+      protein: 1,
+      carbs: 15,
+      fat: 0,
+      sodium: 5,
+      fiber: 1,
+      other: "~13g sugar · 25% DV vitamin C",
+      approx: true,
+    },
+    flatwhite: {
+      name: "Flat White",
+      serving: "Grande (16 fl oz), 2% milk",
+      calories: 170,
+      protein: 9,
+      carbs: 13,
+      fat: 9,
+      sodium: 105,
+      fiber: 0,
+      other: "Starbucks-style estimate — varies with milk type, size, and shots.",
+      approx: true,
+    },
+    americano: {
+      name: "Americano",
+      serving: "Grande (16 fl oz), black",
+      calories: 15,
+      protein: 1,
+      carbs: 3,
+      fat: 0,
+      sodium: 10,
+      fiber: 0,
+      other: "Black coffee estimate — add milk/sugar separately if used. Varies with size and shots.",
+      approx: true,
+    },
   };
   const meals = [
     {
@@ -361,6 +409,7 @@
     };
   }
   let db = loadDB();
+  let editingFoodId = null;
   function saveDB() {
     persistLocal();
     scheduleRemoteSync();
@@ -808,6 +857,7 @@
   function showFood(tab = "meals") {
     stopTimer();
     if (active()) saveActive();
+    if (tab !== "today") editingFoodId = null;
     phase = "food";
     topbar.hidden = true;
     const d = dayKey(),
@@ -821,9 +871,25 @@
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
       b.addEventListener("click", () => {
         db.foodLogs = db.foodLogs.filter((x) => String(x.id) !== b.dataset.deleteFood);
+        if (editingFoodId === b.dataset.deleteFood) editingFoodId = null;
         saveDB();
         showFood("today");
       }),
+    );
+    stage.querySelectorAll("[data-edit-food]").forEach((b) =>
+      b.addEventListener("click", () => {
+        editingFoodId = b.dataset.editFood;
+        showFood("today");
+      }),
+    );
+    stage.querySelectorAll("[data-cancel-edit-food]").forEach((b) =>
+      b.addEventListener("click", () => {
+        editingFoodId = null;
+        showFood("today");
+      }),
+    );
+    stage.querySelectorAll("[data-save-food]").forEach((b) =>
+      b.addEventListener("click", () => saveFoodEdit(b.dataset.saveFood)),
     );
     armBackgroundTimer();
   }
@@ -889,12 +955,50 @@
   function renderToday(d) {
     const rows = db.foodLogs.filter((x) => x.date === d).slice().reverse();
     if (!rows.length) return `<div class="logRow"><div class="foodName">Nothing logged today.</div></div>`;
-    return rows
-      .map(
-        (x) =>
-          `<div class="logRow"><div class="logTop"><div><div class="foodName">${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(x.serving || "")}</div><div class="macroLine">${x.approx ? "~" : ""}${x.calories} cal · ${r1(x.protein)}g P · ${r1(x.carbs)}g C · ${r1(x.fat)}g F · ${Math.round(x.sodium || 0)}mg Na · ${r1(x.fiber)}g fiber</div></div><button class="delete" data-delete-food="${x.id}" type="button">×</button></div></div>`,
-      )
-      .join("");
+    return rows.map((x) => (String(x.id) === editingFoodId ? renderFoodEditRow(x) : renderFoodRow(x))).join("");
+  }
+  function renderFoodRow(x) {
+    return `<div class="logRow" data-food-row="${x.id}"><div class="logTop"><div><div class="foodName">${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(x.serving || "")}</div><div class="macroLine">${x.approx ? "~" : ""}${x.calories} cal · ${r1(x.protein)}g P · ${r1(x.carbs)}g C · ${r1(x.fat)}g F · ${Math.round(x.sodium || 0)}mg Na · ${r1(x.fiber)}g fiber</div></div><div style="display:flex;flex-direction:column;gap:6px"><button class="delete" data-edit-food="${x.id}" type="button" aria-label="Edit">✎</button><button class="delete" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></div></div></div>`;
+  }
+  function renderFoodEditRow(x) {
+    return `<div class="logRow" data-food-row="${x.id}"><div style="display:flex;flex-direction:column;gap:8px;width:100%">
+      <input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
+      <input data-edit-field="serving" type="text" value="${esc(x.serving || "")}" placeholder="Serving">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <input data-edit-field="calories" type="number" value="${x.calories}" placeholder="Calories">
+        <input data-edit-field="protein" type="number" step="0.1" value="${x.protein}" placeholder="Protein (g)">
+        <input data-edit-field="carbs" type="number" step="0.1" value="${x.carbs}" placeholder="Carbs (g)">
+        <input data-edit-field="fat" type="number" step="0.1" value="${x.fat}" placeholder="Fat (g)">
+        <input data-edit-field="sodium" type="number" value="${x.sodium || 0}" placeholder="Sodium (mg)">
+        <input data-edit-field="fiber" type="number" step="0.1" value="${x.fiber || 0}" placeholder="Fiber (g)">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="submit" style="margin-top:0" data-save-food="${x.id}" type="button">Save</button>
+        <button class="btn" data-cancel-edit-food type="button">Cancel</button>
+      </div>
+    </div></div>`;
+  }
+  function saveFoodEdit(id) {
+    const row = stage.querySelector(`[data-food-row="${CSS.escape(id)}"]`);
+    const x = db.foodLogs.find((f) => String(f.id) === id);
+    if (!row || !x) return;
+    const field = (f) => row.querySelector(`[data-edit-field="${f}"]`)?.value;
+    const num = (f, cur) => {
+      const v = Number(field(f));
+      return Number.isFinite(v) ? v : cur;
+    };
+    const name = (field("name") || "").trim();
+    if (name) x.name = name;
+    x.serving = (field("serving") || "").trim();
+    x.calories = num("calories", x.calories);
+    x.protein = num("protein", x.protein);
+    x.carbs = num("carbs", x.carbs);
+    x.fat = num("fat", x.fat);
+    x.sodium = num("sodium", x.sodium);
+    x.fiber = num("fiber", x.fiber);
+    editingFoodId = null;
+    saveDB();
+    showFood("today");
   }
   function showBody() {
     stopTimer();

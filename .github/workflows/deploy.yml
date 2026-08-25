@@ -1,0 +1,77 @@
+name: Deploy to Pages
+
+# Publishes this repo's static files to the gh-pages branch root so
+# https://jackdengler.github.io/fitness-tracker/ serves the app.
+#
+# One-time setup: Settings -> Pages -> Source must be
+# "Deploy from a branch" with Branch = gh-pages, Folder = /.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-write
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Install rasterizer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends librsvg2-bin
+
+      - name: Generate icon PNGs
+        run: |
+          set -euo pipefail
+          rsvg-convert -w 180 -h 180 source/icons/icon.svg -o source/icons/apple-touch-icon.png
+          rsvg-convert -w 512 -h 512 source/icons/icon.svg -o source/icons/icon-512.png
+
+      - name: Assemble _site
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp -R source/. _site/
+          rm -rf _site/.git _site/.github
+          touch _site/.nojekyll
+
+      - name: Publish _site to gh-pages:/
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          PAGES_DIR=$(mktemp -d)
+          CLONE_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GH_REPO}.git"
+
+          if git ls-remote --heads "$CLONE_URL" gh-pages | grep -q gh-pages; then
+            git clone --branch gh-pages --depth 1 "$CLONE_URL" "$PAGES_DIR"
+          else
+            git clone --depth 1 "$CLONE_URL" "$PAGES_DIR"
+            (cd "$PAGES_DIR" && git checkout --orphan gh-pages && git rm -rf . >/dev/null 2>&1 || true)
+          fi
+
+          find "$PAGES_DIR" -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
+          cp -R _site/. "$PAGES_DIR/"
+
+          cd "$PAGES_DIR"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No production changes to publish"
+            exit 0
+          fi
+          git commit -m "deploy: main @ ${SHA:0:7}"
+          git push origin gh-pages

@@ -823,7 +823,6 @@
   }
   let db = loadDB();
   ensureTemplates();
-  let editingFoodId = null;
   let cardioMachine = "treadmill";
   let cardioMode = "run";
   let editorDay = "A";
@@ -1318,7 +1317,6 @@
   function showFood(tab = "meals") {
     stopTimer();
     if (active()) saveActive();
-    if (tab !== "today") editingFoodId = null;
     phase = "food";
     const d = dayKey(),
       t = foodTotals(d);
@@ -1362,12 +1360,12 @@
       });
     }
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
-      b.addEventListener("click", () => {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
         const id = b.dataset.deleteFood;
         const idx = db.foodLogs.findIndex((x) => String(x.id) === id);
         if (idx === -1) return;
         const [removed] = db.foodLogs.splice(idx, 1);
-        if (editingFoodId === id) editingFoodId = null;
         saveDB();
         showFood("today");
         showUndoToast(`Deleted ${removed.name}`, () => {
@@ -1377,30 +1375,9 @@
         });
       }),
     );
-    stage.querySelectorAll("[data-edit-food]").forEach((b) =>
-      b.addEventListener("click", () => {
-        editingFoodId = b.dataset.editFood;
-        showFood("today");
-      }),
+    stage.querySelectorAll("[data-view-food]").forEach((el) =>
+      el.addEventListener("click", () => showFoodDetail(el.dataset.viewFood)),
     );
-    stage.querySelectorAll("[data-cancel-edit-food]").forEach((b) =>
-      b.addEventListener("click", () => {
-        editingFoodId = null;
-        showFood("today");
-      }),
-    );
-    stage.querySelectorAll("[data-save-food]").forEach((b) =>
-      b.addEventListener("click", () => saveFoodEdit(b.dataset.saveFood)),
-    );
-    stage.querySelectorAll("[data-save-food-ingredients]").forEach((b) =>
-      b.addEventListener("click", () => saveFoodIngredientEdit(b.dataset.saveFoodIngredients)),
-    );
-    if (tab === "today" && editingFoodId) {
-      const editingItem = db.foodLogs.find((x) => String(x.id) === editingFoodId);
-      if (editingItem && Array.isArray(editingItem.ingredients) && editingItem.ingredients.length) {
-        wireIngredientEditLive(editingItem);
-      }
-    }
     armBackgroundTimer();
   }
   function renderQuickAddForm() {
@@ -1523,19 +1500,83 @@
         const rows = items
           .slice()
           .reverse()
-          .map((x) => (String(x.id) === editingFoodId ? renderFoodEditRow(x) : renderFoodRow(x)))
+          .map((x) => renderFoodRow(x))
           .join("");
         return `<details ${isToday ? "open" : ""}><summary style="font-size:13px;padding:10px 12px;margin:0;background:light-dark(#ecece8,#141614)">${formatDayLabel(date)}${isToday ? " · today" : ""} · ${Math.round(totals.calories)} cal · ${r1(totals.protein)}g P · ${r1(totals.carbs)}g C · ${r1(totals.fat)}g F</summary><div>${rows}</div></details>`;
       })
       .join("");
   }
   function renderFoodRow(x) {
-    return `<div class="logRow" data-food-row="${x.id}"><div class="logTop"><div><div class="foodName">${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(x.serving || "")}</div><div class="macroLine">${x.approx ? "~" : ""}${x.calories} cal · ${r1(x.protein)}g P · ${r1(x.carbs)}g C · ${r1(x.fat)}g F · ${Math.round(x.sodium || 0)}mg Na · ${r1(x.fiber)}g fiber</div></div><div style="display:flex;flex-direction:column;gap:6px"><button class="delete" data-edit-food="${x.id}" type="button" aria-label="Edit">✎</button><button class="delete" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></div></div></div>`;
+    return `<div class="logRow" data-view-food="${x.id}" style="cursor:pointer"><div class="logTop"><div><div class="foodName">${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(x.serving || "")}</div><div class="macroLine">${x.approx ? "~" : ""}${x.calories} cal · ${r1(x.protein)}g P · ${r1(x.carbs)}g C · ${r1(x.fat)}g F · ${Math.round(x.sodium || 0)}mg Na · ${r1(x.fiber)}g fiber</div></div><button class="delete" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></div></div>`;
   }
-  function renderFoodEditRow(x) {
-    if (Array.isArray(x.ingredients) && x.ingredients.length) return renderIngredientEditRow(x);
-    return `<div class="logRow" data-food-row="${x.id}"><div style="display:flex;flex-direction:column;gap:8px;width:100%">
-      <input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
+  function showFoodDetail(id) {
+    stopTimer();
+    if (active()) saveActive();
+    phase = "foodDetail";
+    const x = db.foodLogs.find((f) => String(f.id) === String(id));
+    if (!x) return showFood("today");
+    const hasIngredients = Array.isArray(x.ingredients) && x.ingredients.length;
+    const body = hasIngredients ? renderIngredientEditBody(x) : renderWholeItemEditBody(x);
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(x.name)}</div><button id="foodDetailBack" class="btn" type="button">Back</button></div><div class="library"><div class="form" style="display:flex;flex-direction:column;gap:8px">${body}</div></div></section>`;
+    stage.querySelector("#foodDetailBack").addEventListener("click", () => showFood("today"));
+    if (hasIngredients) {
+      const update = () => {
+        const list = x.ingredients.map((ing, i) => {
+          const input = stage.querySelector(`[data-ing-qty="${i}"]`);
+          const q = input ? Number(input.value) : ing.qty;
+          return { ...ing, qty: Number.isFinite(q) && q >= 0 ? q : 0 };
+        });
+        stage.querySelectorAll("[data-ing-row]").forEach((r) => {
+          const i = Number(r.dataset.ingRow);
+          const calEl = r.querySelector("[data-ing-cal]");
+          if (calEl) calEl.textContent = `${Math.round((list[i].calories || 0) * list[i].qty)} cal`;
+        });
+        const totalsEl = stage.querySelector("[data-ing-totals]");
+        if (totalsEl) totalsEl.textContent = macroLine(Object.assign(sumIngredients(list), { approx: x.approx }));
+      };
+      stage.querySelectorAll("[data-ing-qty]").forEach((input) => input.addEventListener("input", update));
+      stage.querySelector("#saveFoodIngredients").addEventListener("click", () => {
+        const name = (stage.querySelector('[data-edit-field="name"]')?.value || "").trim();
+        if (name) x.name = name;
+        x.ingredients = x.ingredients.map((ing, i) => {
+          const input = stage.querySelector(`[data-ing-qty="${i}"]`);
+          const q = input ? Number(input.value) : ing.qty;
+          return { ...ing, qty: Number.isFinite(q) && q >= 0 ? q : 0 };
+        });
+        const totals = sumIngredients(x.ingredients);
+        x.calories = totals.calories;
+        x.protein = totals.protein;
+        x.carbs = totals.carbs;
+        x.fat = totals.fat;
+        x.sodium = totals.sodium;
+        x.fiber = totals.fiber;
+        saveDB();
+        showFood("today");
+      });
+    } else {
+      stage.querySelector("#saveFood").addEventListener("click", () => {
+        const field = (f) => stage.querySelector(`[data-edit-field="${f}"]`)?.value;
+        const num = (f, cur) => {
+          const v = Number(field(f));
+          return Number.isFinite(v) ? v : cur;
+        };
+        const name = (field("name") || "").trim();
+        if (name) x.name = name;
+        x.serving = (field("serving") || "").trim();
+        x.calories = num("calories", x.calories);
+        x.protein = num("protein", x.protein);
+        x.carbs = num("carbs", x.carbs);
+        x.fat = num("fat", x.fat);
+        x.sodium = num("sodium", x.sodium);
+        x.fiber = num("fiber", x.fiber);
+        saveDB();
+        showFood("today");
+      });
+    }
+    armBackgroundTimer();
+  }
+  function renderWholeItemEditBody(x) {
+    return `<input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
       <input data-edit-field="serving" type="text" value="${esc(x.serving || "")}" placeholder="Serving">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input data-edit-field="calories" type="number" value="${x.calories}" placeholder="Calories">
@@ -1545,91 +1586,19 @@
         <input data-edit-field="sodium" type="number" value="${x.sodium || 0}" placeholder="Sodium (mg)">
         <input data-edit-field="fiber" type="number" step="0.1" value="${x.fiber || 0}" placeholder="Fiber (g)">
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="submit" style="margin-top:0" data-save-food="${x.id}" type="button">Save</button>
-        <button class="btn" data-cancel-edit-food type="button">Cancel</button>
-      </div>
-    </div></div>`;
+      <button class="submit" id="saveFood" style="margin-top:0" type="button">Save</button>`;
   }
-  function renderIngredientEditRow(x) {
+  function renderIngredientEditBody(x) {
     const rows = x.ingredients
       .map(
         (ing, i) =>
           `<div class="ingredientMini" data-ing-row="${i}"><span>${esc(ing.name)} · ${esc(ing.serving)}</span><span style="display:flex;align-items:center;gap:8px"><input type="number" step="0.5" min="0" value="${ing.qty}" data-ing-qty="${i}" style="width:60px;min-height:32px;padding:0 6px;text-align:center">×<span data-ing-cal style="min-width:52px;text-align:right">${Math.round((ing.calories || 0) * ing.qty)} cal</span></span></div>`,
       )
       .join("");
-    return `<div class="logRow" data-food-row="${x.id}"><div style="display:flex;flex-direction:column;gap:8px;width:100%">
-      <input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
+    return `<input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
       <div>${rows}</div>
       <div class="macroLine" data-ing-totals>${macroLine(Object.assign(sumIngredients(x.ingredients), { approx: x.approx }))}</div>
-      <div style="display:flex;gap:8px">
-        <button class="submit" style="margin-top:0" data-save-food-ingredients="${x.id}" type="button">Save</button>
-        <button class="btn" data-cancel-edit-food type="button">Cancel</button>
-      </div>
-    </div></div>`;
-  }
-  function wireIngredientEditLive(x) {
-    const row = stage.querySelector(`[data-food-row="${CSS.escape(String(x.id))}"]`);
-    if (!row) return;
-    const update = () => {
-      const list = x.ingredients.map((ing, i) => {
-        const input = row.querySelector(`[data-ing-qty="${i}"]`);
-        const q = input ? Number(input.value) : ing.qty;
-        return { ...ing, qty: Number.isFinite(q) && q >= 0 ? q : 0 };
-      });
-      row.querySelectorAll("[data-ing-row]").forEach((r) => {
-        const i = Number(r.dataset.ingRow);
-        const calEl = r.querySelector("[data-ing-cal]");
-        if (calEl) calEl.textContent = `${Math.round((list[i].calories || 0) * list[i].qty)} cal`;
-      });
-      const totalsEl = row.querySelector("[data-ing-totals]");
-      if (totalsEl) totalsEl.textContent = macroLine(Object.assign(sumIngredients(list), { approx: x.approx }));
-    };
-    row.querySelectorAll("[data-ing-qty]").forEach((input) => input.addEventListener("input", update));
-  }
-  function saveFoodIngredientEdit(id) {
-    const row = stage.querySelector(`[data-food-row="${CSS.escape(id)}"]`);
-    const x = db.foodLogs.find((f) => String(f.id) === id);
-    if (!row || !x || !Array.isArray(x.ingredients)) return;
-    const name = (row.querySelector('[data-edit-field="name"]')?.value || "").trim();
-    if (name) x.name = name;
-    x.ingredients = x.ingredients.map((ing, i) => {
-      const input = row.querySelector(`[data-ing-qty="${i}"]`);
-      const q = input ? Number(input.value) : ing.qty;
-      return { ...ing, qty: Number.isFinite(q) && q >= 0 ? q : 0 };
-    });
-    const totals = sumIngredients(x.ingredients);
-    x.calories = totals.calories;
-    x.protein = totals.protein;
-    x.carbs = totals.carbs;
-    x.fat = totals.fat;
-    x.sodium = totals.sodium;
-    x.fiber = totals.fiber;
-    editingFoodId = null;
-    saveDB();
-    showFood("today");
-  }
-  function saveFoodEdit(id) {
-    const row = stage.querySelector(`[data-food-row="${CSS.escape(id)}"]`);
-    const x = db.foodLogs.find((f) => String(f.id) === id);
-    if (!row || !x) return;
-    const field = (f) => row.querySelector(`[data-edit-field="${f}"]`)?.value;
-    const num = (f, cur) => {
-      const v = Number(field(f));
-      return Number.isFinite(v) ? v : cur;
-    };
-    const name = (field("name") || "").trim();
-    if (name) x.name = name;
-    x.serving = (field("serving") || "").trim();
-    x.calories = num("calories", x.calories);
-    x.protein = num("protein", x.protein);
-    x.carbs = num("carbs", x.carbs);
-    x.fat = num("fat", x.fat);
-    x.sodium = num("sodium", x.sodium);
-    x.fiber = num("fiber", x.fiber);
-    editingFoodId = null;
-    saveDB();
-    showFood("today");
+      <button class="submit" id="saveFoodIngredients" style="margin-top:0" type="button">Save</button>`;
   }
   const WAIST_DAY = 0; // 0=Sunday .. 6=Saturday
   const WAIST_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

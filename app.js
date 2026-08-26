@@ -144,11 +144,11 @@
 
   const targets = {
     calories: { min: 1900, max: 2100 },
-    protein: { min: 180 },
-    fiber: { min: 30 },
-    carbs: { max: 180 },
-    fat: { max: 65 },
-    sodium: { max: 2300 },
+    protein: { min: 175, max: 195 },
+    carbs: { min: 120, max: 160 },
+    fat: { min: 50, max: 60 },
+    sodium: { min: 1500, max: 2300 },
+    fiber: { min: 30, max: 40 },
   };
   function targetLabel(key) {
     const t = targets[key];

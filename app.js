@@ -1030,7 +1030,7 @@
     stage.querySelector("#cardio").addEventListener("click", showCardio);
     stage.querySelector("#editWorkouts").addEventListener("click", showWorkoutEditor);
     stage.querySelector("#history").addEventListener("click", showHistory);
-    stage.querySelector("#mealHistory").addEventListener("click", () => showFood("today"));
+    stage.querySelector("#mealHistory").addEventListener("click", () => showFoodHistory());
     setPublishStamp();
     armBackgroundTimer();
   }
@@ -1328,44 +1328,46 @@
     const d = dayKey(),
       t = foodTotals(d);
     const library =
-      tab === "meals"
-        ? renderFoodList(meals)
-        : tab === "snacks"
-          ? renderFoodList(snacks)
-          : tab === "drinks"
-            ? renderFoodList(drinks)
-            : renderQuickAddForm() + renderToday(d);
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricStatus(t.calories, "calories")}">${Math.round(t.calories)}</div><div>${targetLabel("calories")}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricStatus(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricStatus(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricStatus(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal${metricStatus(t.sodium, "sodium")}">${Math.round(t.sodium)}</div><div>${targetLabel("sodium")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricStatus(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button data-tab="today" class="${tab === "today" ? "active" : ""}" type="button">History</button></div><div class="library">${library}</div></section>`;
+      tab === "meals" ? renderFoodList(meals) : tab === "snacks" ? renderFoodList(snacks) : renderFoodList(drinks);
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricStatus(t.calories, "calories")}">${Math.round(t.calories)}</div><div>${targetLabel("calories")}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricStatus(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricStatus(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricStatus(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal${metricStatus(t.sodium, "sodium")}">${Math.round(t.sodium)}</div><div>${targetLabel("sodium")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricStatus(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button id="openFoodHistory" type="button">History</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
     stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));
-    if (tab === "today") {
-      stage.querySelector("#quickAddForm").addEventListener("submit", (e) => {
-        e.preventDefault();
-        const name = (stage.querySelector("#quickName").value || "").trim();
-        const calories = Number(stage.querySelector("#quickCalories").value);
-        if (!name || !Number.isFinite(calories)) return;
-        const num = (id) => {
-          const v = Number(stage.querySelector(id).value);
-          return Number.isFinite(v) ? v : 0;
-        };
-        db.foodLogs.push({
-          id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
-          date: dayKey(),
-          name,
-          serving: "",
-          calories,
-          protein: num("#quickProtein"),
-          carbs: num("#quickCarbs"),
-          fat: num("#quickFat"),
-          sodium: num("#quickSodium"),
-          fiber: num("#quickFiber"),
-          approx: false,
-        });
-        saveDB();
-        showFood("today");
+    stage.querySelector("#openFoodHistory").addEventListener("click", showFoodHistory);
+    armBackgroundTimer();
+  }
+  function showFoodHistory() {
+    stopTimer();
+    if (active()) saveActive();
+    phase = "foodHistory";
+    const d = dayKey();
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="foodHistoryBack" class="btn" type="button">Back</button></div><div class="library">${renderQuickAddForm()}${renderToday(d)}</div></section>`;
+    stage.querySelector("#foodHistoryBack").addEventListener("click", () => showFood("meals"));
+    stage.querySelector("#quickAddForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = (stage.querySelector("#quickName").value || "").trim();
+      const calories = Number(stage.querySelector("#quickCalories").value);
+      if (!name || !Number.isFinite(calories)) return;
+      const num = (id) => {
+        const v = Number(stage.querySelector(id).value);
+        return Number.isFinite(v) ? v : 0;
+      };
+      db.foodLogs.push({
+        id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
+        date: dayKey(),
+        name,
+        serving: "",
+        calories,
+        protein: num("#quickProtein"),
+        carbs: num("#quickCarbs"),
+        fat: num("#quickFat"),
+        sodium: num("#quickSodium"),
+        fiber: num("#quickFiber"),
+        approx: false,
       });
-    }
+      saveDB();
+      showFoodHistory();
+    });
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1374,11 +1376,11 @@
         if (idx === -1) return;
         const [removed] = db.foodLogs.splice(idx, 1);
         saveDB();
-        showFood("today");
+        showFoodHistory();
         showUndoToast(`Deleted ${removed.name}`, () => {
           db.foodLogs.splice(idx, 0, removed);
           saveDB();
-          if (phase === "food") showFood("today");
+          if (phase === "foodHistory") showFoodHistory();
         });
       }),
     );
@@ -1467,7 +1469,7 @@
     }
     db.foodLogs.push(entry);
     saveDB();
-    showFood("today");
+    showFoodHistory();
   }
   function sumIngredients(list) {
     return list.reduce(
@@ -1527,11 +1529,11 @@
     if (active()) saveActive();
     phase = "foodDetail";
     const x = db.foodLogs.find((f) => String(f.id) === String(id));
-    if (!x) return showFood("today");
+    if (!x) return showFoodHistory();
     const hasIngredients = Array.isArray(x.ingredients) && x.ingredients.length;
     const body = hasIngredients ? renderIngredientEditBody(x) : renderWholeItemEditBody(x);
     stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(x.name)}</div><button id="foodDetailBack" class="btn" type="button">Back</button></div><div class="library"><div class="form" style="display:flex;flex-direction:column;gap:8px">${body}</div></div></section>`;
-    stage.querySelector("#foodDetailBack").addEventListener("click", () => showFood("today"));
+    stage.querySelector("#foodDetailBack").addEventListener("click", () => showFoodHistory());
     if (hasIngredients) {
       const update = () => {
         const list = x.ingredients.map((ing, i) => {
@@ -1564,7 +1566,7 @@
         x.sodium = totals.sodium;
         x.fiber = totals.fiber;
         saveDB();
-        showFood("today");
+        showFoodHistory();
       });
     } else {
       stage.querySelector("#saveFood").addEventListener("click", () => {
@@ -1583,7 +1585,7 @@
         x.sodium = num("sodium", x.sodium);
         x.fiber = num("fiber", x.fiber);
         saveDB();
-        showFood("today");
+        showFoodHistory();
       });
     }
     armBackgroundTimer();

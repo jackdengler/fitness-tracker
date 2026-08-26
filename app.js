@@ -1341,33 +1341,8 @@
     if (active()) saveActive();
     phase = "foodHistory";
     const d = dayKey();
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="foodHistoryBack" class="btn" type="button">Back</button></div><div class="library">${renderQuickAddForm()}${renderToday(d)}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="foodHistoryBack" class="btn" type="button">Back</button></div><div class="library">${renderToday(d)}</div></section>`;
     stage.querySelector("#foodHistoryBack").addEventListener("click", () => showFood("meals"));
-    stage.querySelector("#quickAddForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const name = (stage.querySelector("#quickName").value || "").trim();
-      const calories = Number(stage.querySelector("#quickCalories").value);
-      if (!name || !Number.isFinite(calories)) return;
-      const num = (id) => {
-        const v = Number(stage.querySelector(id).value);
-        return Number.isFinite(v) ? v : 0;
-      };
-      db.foodLogs.push({
-        id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
-        date: dayKey(),
-        name,
-        serving: "",
-        calories,
-        protein: num("#quickProtein"),
-        carbs: num("#quickCarbs"),
-        fat: num("#quickFat"),
-        sodium: num("#quickSodium"),
-        fiber: num("#quickFiber"),
-        approx: false,
-      });
-      saveDB();
-      showFoodHistory();
-    });
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1388,23 +1363,6 @@
       el.addEventListener("click", () => showFoodDetail(el.dataset.viewFood)),
     );
     armBackgroundTimer();
-  }
-  function renderQuickAddForm() {
-    return `<form id="quickAddForm" class="form" style="display:flex;flex-direction:column;gap:8px">
-      <strong>Quick add (one-off, not saved to a list)</strong>
-      <input id="quickName" type="text" placeholder="Name" required>
-      <input id="quickCalories" type="number" inputmode="decimal" placeholder="Calories" required>
-      <details><summary>+ Protein, carbs, fat, sodium, fiber</summary>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-          <input id="quickProtein" type="number" inputmode="decimal" step="0.1" placeholder="Protein (g)">
-          <input id="quickCarbs" type="number" inputmode="decimal" step="0.1" placeholder="Carbs (g)">
-          <input id="quickFat" type="number" inputmode="decimal" step="0.1" placeholder="Fat (g)">
-          <input id="quickSodium" type="number" inputmode="decimal" placeholder="Sodium (mg)">
-          <input id="quickFiber" type="number" inputmode="decimal" step="0.1" placeholder="Fiber (g)">
-        </div>
-      </details>
-      <button class="submit" type="submit">Add</button>
-    </form>`;
   }
   function ingredientSpec(spec) {
     return Array.isArray(spec) ? { id: spec[0], qty: spec[1] } : { id: spec, qty: 1 };
@@ -1545,6 +1503,8 @@
           const i = Number(r.dataset.ingRow);
           const calEl = r.querySelector("[data-ing-cal]");
           if (calEl) calEl.textContent = `${Math.round((list[i].calories || 0) * list[i].qty)} cal`;
+          const macroEl = r.querySelector("[data-ing-macros]");
+          if (macroEl) macroEl.textContent = ingredientMacroLine(list[i], list[i].qty);
         });
         const totalsEl = stage.querySelector("[data-ing-totals]");
         if (totalsEl) totalsEl.textContent = macroLine(Object.assign(sumIngredients(list), { approx: x.approx }));
@@ -1603,11 +1563,21 @@
       </div>
       <button class="submit" id="saveFood" style="margin-top:0" type="button">Save</button>`;
   }
+  function ingredientMacroLine(ing, qty) {
+    return macroLine({
+      calories: Math.round((ing.calories || 0) * qty),
+      protein: (ing.protein || 0) * qty,
+      carbs: (ing.carbs || 0) * qty,
+      fat: (ing.fat || 0) * qty,
+      sodium: (ing.sodium || 0) * qty,
+      fiber: (ing.fiber || 0) * qty,
+    });
+  }
   function renderIngredientEditBody(x) {
     const rows = x.ingredients
       .map(
         (ing, i) =>
-          `<div class="ingredientMini" data-ing-row="${i}"><span>${esc(ing.name)} · ${esc(ing.serving)}</span><span style="display:flex;align-items:center;gap:8px"><input type="number" step="0.5" min="0" value="${ing.qty}" data-ing-qty="${i}" style="width:60px;min-height:32px;padding:0 6px;text-align:center">×<span data-ing-cal style="min-width:52px;text-align:right">${Math.round((ing.calories || 0) * ing.qty)} cal</span></span></div>`,
+          `<div class="ingredientMini" data-ing-row="${i}" style="flex-direction:column;align-items:stretch;gap:4px"><div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(ing.name)} · ${esc(ing.serving)}</span><span style="display:flex;align-items:center;gap:8px"><input type="number" step="0.5" min="0" value="${ing.qty}" data-ing-qty="${i}" style="width:60px;min-height:32px;padding:0 6px;text-align:center">×<span data-ing-cal style="min-width:52px;text-align:right">${Math.round((ing.calories || 0) * ing.qty)} cal</span></span></div><div class="macroLine" data-ing-macros="${i}" style="margin-top:0">${ingredientMacroLine(ing, ing.qty)}</div></div>`,
       )
       .join("");
     return `<input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">

@@ -549,6 +549,28 @@
       other: "Sesame, poppy seed, garlic, onion, salt blend",
       approx: true,
     },
+    salmonfillet: {
+      name: "Salmon Fillet",
+      serving: "g",
+      calories: 2.2124,
+      protein: 0.2035,
+      carbs: 0,
+      fat: 0.1593,
+      sodium: 0.4425,
+      fiber: 0,
+      other: "Per-gram values from label: 113g (4oz, ~1/2 fillet) = 250 cal, 18g fat, 65mg cholesterol, 50mg sodium, 0g carb, 23g protein.",
+    },
+    broccoli170g: {
+      name: "Broccoli, steamed/roasted",
+      serving: "170g",
+      calories: 70,
+      protein: 4,
+      carbs: 12,
+      fat: 0,
+      sodium: 60,
+      fiber: 4,
+      other: "Label: 1 cup (85g) = 35 cal, 30mg sodium, 6g carb, 2g fiber, 2g protein. 170g = 2 servings exactly.",
+    },
   };
   const meals = [
     {
@@ -644,6 +666,20 @@
         "whitericeuncooked",
         "edamamekroger",
       ],
+    },
+    {
+      id: "salmon-broccoli-rice-dinner",
+      name: "Salmon Broccoli Rice Dinner",
+      serving: "113g salmon, 170g broccoli, ¼ cup uncooked rice",
+      calories: 526,
+      protein: 30,
+      carbs: 48.2,
+      fat: 22.9,
+      sodium: 401,
+      fiber: 4.7,
+      approx: true,
+      note: "Totals are the exact sum of the listed ingredients. Salmon is gram-adjustable (like the chicken/beef) — default is 113g (4oz, ~1/2 fillet); edit its qty to your exact amount. Broccoli is a fixed 170g. Seasoned with avocado oil spray, salt, and pepper (no elote seasoning).",
+      ingredientIds: [["salmonfillet", 113], "whitericeuncooked", "broccoli170g", "avocadooilspray", "saltpinch", "blackpepper"],
     },
   ];
   const snacks = [

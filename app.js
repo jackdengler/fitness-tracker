@@ -740,6 +740,18 @@
       approx: true,
       note: "Isopure Zero Carb ready-to-drink bottle — typical label values, varies a bit by flavor.",
     },
+    {
+      id: "lowcarbmonster",
+      name: "Low Carb Monster",
+      serving: "1 can",
+      calories: 30,
+      protein: 0,
+      carbs: 9,
+      fat: 0,
+      sodium: 380,
+      fiber: 0,
+      note: "Per label: 9g total carb, 6g total sugars (6g added).",
+    },
   ];
   const DEFAULT_TEMPLATES = {
     A: {

@@ -143,17 +143,16 @@
   // --- end remote sync ---
 
   const targets = {
-    calories: { min: 1900, max: 2100 },
-    protein: { min: 175, max: 195 },
-    carbs: { min: 120, max: 160 },
-    fat: { min: 50, max: 60 },
-    sodium: { min: 1500, max: 2300 },
-    fiber: { min: 30, max: 40 },
+    calories: { min: 1900, max: 2050 },
+    protein: { min: 170 },
+    carbs: { min: 140 },
+    fat: { min: 50 },
+    fiber: { min: 25 },
   };
   function targetLabel(key) {
     const t = targets[key];
     if (!t) return "";
-    const unit = key === "sodium" ? "mg" : key === "calories" ? "" : "g";
+    const unit = key === "calories" ? "" : "g";
     if (t.min !== undefined && t.max !== undefined) return `${t.min}–${t.max}${unit}`;
     if (t.min !== undefined) return `min ${t.min}${unit}`;
     if (t.max !== undefined) return `max ${t.max}${unit}`;
@@ -1481,7 +1480,7 @@
       t = foodTotals(d);
     const library =
       tab === "meals" ? renderFoodList(meals) : tab === "snacks" ? renderFoodList(snacks) : renderFoodList(drinks);
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricStatus(t.calories, "calories")}">${Math.round(t.calories)}</div><div>${targetLabel("calories")}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricStatus(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricStatus(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricStatus(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Sodium</div><div class="metricVal${metricStatus(t.sodium, "sodium")}">${Math.round(t.sodium)}</div><div>${targetLabel("sodium")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricStatus(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button id="openFoodHistory" type="button">History</button></div><div class="library">${library}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricStatus(t.calories, "calories")}">${Math.round(t.calories)}</div><div>${targetLabel("calories")}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricStatus(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricStatus(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricStatus(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricStatus(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button id="openFoodHistory" type="button">History</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
     stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));

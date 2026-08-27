@@ -749,7 +749,7 @@
     {
       id: "raspberries",
       name: "Raspberries",
-      serving: "½ cup (~62g)",
+      serving: "62g",
       calories: 32,
       protein: 0.7,
       carbs: 7,

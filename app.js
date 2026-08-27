@@ -1130,7 +1130,7 @@
         resume = `<button id="resume" class="resume" type="button"><div>Resume ${db.templates[a.workout].name}<br><small>${esc(e.name)} · ${a.phase === "rest" ? "Resting" : "Set " + Math.min(a.session.filter((x) => x.id === e.id).length + 1, 2)}</small></div><div>→</div></button>`;
     }
     const cardioLabel = lc ? (lc.machine === "treadmill" ? (lc.mode === "walk" ? "Walk" : "Run") : "Bike") : "Log";
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button><button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} kcal · ${r1(t.protein)}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button><button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} kcal · ${r1(t.protein)}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
@@ -1138,7 +1138,159 @@
     stage.querySelector("#editWorkouts").addEventListener("click", showWorkoutEditor);
     stage.querySelector("#history").addEventListener("click", showHistory);
     stage.querySelector("#mealHistory").addEventListener("click", () => showFoodHistory());
+    stage.querySelector("#openPlan").addEventListener("click", showPlan);
     setPublishStamp();
+    armBackgroundTimer();
+  }
+  function showPlan() {
+    stopTimer();
+    if (active()) saveActive();
+    phase = "plan";
+    const h = (text) =>
+      `<div style="font-size:15px;font-weight:950;margin-top:4px">${esc(text)}</div>`;
+    const sub = (text) => `<div style="font-size:12px;font-weight:850;color:light-dark(#555a54,#bdc1bb);margin-top:8px">${esc(text)}</div>`;
+    const p = (text) => `<div style="font-size:13px;margin-top:4px">${text}</div>`;
+    const ul = (items) => `<ul style="margin:6px 0 0;padding-left:18px;font-size:13px">${items.map((i) => `<li style="margin-top:3px">${i}</li>`).join("")}</ul>`;
+    const table = (head, rows) =>
+      `<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px"><thead><tr>${head.map((c) => `<th style="text-align:left;padding:6px 4px;border-bottom:1px solid light-dark(#cfd1cc,#343733);font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:light-dark(#6d716b,#a8aca6)">${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows
+        .map((r) => `<tr>${r.map((c, i) => `<td style="padding:6px 4px;border-bottom:1px solid light-dark(#ecece8,#272a27);${i === 0 ? "font-weight:850" : ""}">${esc(c)}</td>`).join("")}</tr>`)
+        .join("")}</tbody></table>`;
+    const section = (title, body) =>
+      `<div class="form" style="padding:16px">${h(title)}${body}</div>`;
+
+    const content = [
+      section(
+        "10-Month Physique Plan — Aug 24, 2026 → June 2027",
+        p(
+          `6'2", 196 lbs, male, ~22% body fat (est.), former athlete, low current muscle mass.<br>` +
+            `Goal: ~13–14% body fat, flat/hard stomach, visible abs when flexed, obviously muscular (not huge) arms.<br>` +
+            `June 2027 is Checkpoint 1, not the finish line — see Phase 3B.<br>` +
+            `Cut target before switching to muscle-building: 13% body fat (chosen over 15%).`,
+        ) +
+          sub("Trade-off") +
+          p(
+            "Cutting to 13% before Phase 3 takes an estimated ~6–6.5 months, leaving only ~3.5 months to build muscle before June. Arms are the slowest-responding part of the goal — expect them furthest from \"done\" by June under this path. Known cost of prioritizing leanness first, not a mistake.",
+          ),
+      ),
+      section(
+        "Daily Non-Negotiables (all phases)",
+        ul(["Sleep: 7+ hours/night", "Water: minimum half bodyweight (lbs) in oz", "Weigh-in: same time/conditions, track weekly average not daily number"]),
+      ),
+      section(
+        "Weekly Schedule (all phases)",
+        ul([
+          "Mon / Wed / Fri: 3-day lifting split (rotating A/B/C)",
+          "Tue / Thu: 60 min incline treadmill walk (mandatory)",
+          "Sat / Sun: optional extra incline walk if desired, not required",
+          "Sunday: waist measurement + full body-fat tape measurement (weekly)",
+        ]),
+      ),
+      section(
+        "Nutrition Targets by Phase",
+        table(
+          ["Metric", "Phase 1–2 (Cut)", "Phase 3 (Build)", "Final Cut"],
+          [
+            ["Calories", "1,900–2,050", "Maint. +200–300", "1,900–2,050"],
+            ["Protein", "170g+", "180–190g+", "180g+"],
+            ["Carbs", "140g+", "160g+", "140g+"],
+            ["Fat", "50g+", "60g+", "50g+"],
+            ["Fiber", "18g+", "20g+", "18g+"],
+            ["Sodium", "hidden/ignore (soft cap <3,000mg)", "same", "same"],
+          ],
+        ),
+      ),
+      section(
+        "Phase 1 — Weeks 1–8 (Aug 24 – Oct 19, 2026)",
+        p("Goal: fat loss, relearn lifts, rebuild joint/tendon tolerance, habit formation.") +
+          ul([
+            "Weeks 1–4 (through ~Sep 21): 2 sets/exercise. Focus on form, full range of motion, consistency. No weight-chasing yet.",
+            "Weeks 5–8 (through ~Oct 19): move to 3 sets/exercise. Begin progressive overload — add weight when you hit top of rep range 2 sessions in a row.",
+          ]) +
+          sub("Tracking") +
+          p("Weekly: waist + tape body-fat measurement every Sunday, bodyweight daily (track weekly average). Monthly: progress photo, same lighting/pose.") +
+          sub("Expected by end of Phase 1 (~Oct 19)") +
+          ul(["Weight: -7 to -10 lbs", "Body fat: 22% → ~19-20%"]),
+      ),
+      section(
+        "Phase 2 — Weeks 9–24ish (Oct 20, 2026 – early Mar 2027)",
+        p("Goal: continue the cut down to 13%, build training volume along the way.") +
+          ul([
+            "Late Oct: recalculate TDEE using new bodyweight. Adjust calories only if progress stalls 2+ weeks despite adherence.",
+            "Nov onward: increase to 4 sets/exercise once 3 feels easy.",
+            "Continue weekly Sunday measurements — this is the main signal for when to switch to Phase 3.",
+          ]) +
+          sub("Rough body fat trajectory (go by actual Sunday numbers, not the calendar)") +
+          ul(["End Nov: ~18%", "End Dec: ~16-17%", "End Jan: ~15%", "End Feb: ~13-14%", "Early Mar: 13% — switch to Phase 3"]) +
+          sub("Decision rule") +
+          p("Switch to Phase 3 the Sunday the tape measurement reads ~13%, whenever that actually happens — don't wait for a calendar date, and don't keep cutting past 13% \"just to be sure.\""),
+      ),
+      section(
+        "Phase 3 — Early Mar – Late May 2027 (~3.5 months)",
+        p("Goal: build as much visible muscle as possible in a compressed window, especially arms. Given the short window, prioritize efficiency over volume creep.") +
+          ul([
+            "Switch: move calories to maintenance +200-300 surplus immediately. Retest TDEE at new bodyweight. Protein to 180-190g.",
+            "Training: 4 sets/exercise on all main lifts. Add a dedicated arm-focused block — extra set of biceps curl + triceps pressdown each session, or a short 4th day if recovery allows. Highest-leverage change to compensate for the shortened window.",
+            "Consistency over intensity: with only ~14-15 weeks, missed sessions cost proportionally more than in a longer phase — protect Mon/Wed/Fri lifting above almost everything else.",
+            "Monitor body fat weekly: some regain is expected and fine (target creeping to ~15-16% during the surplus is normal); if it climbs past ~17-18%, tighten the surplus to +100-150.",
+          ]) +
+          sub("Expected by late May 2027") +
+          ul([
+            "Some new muscle, most visible in shoulders/chest/back (faster-responding areas)",
+            "Arms: likely still developing — visible improvement from Aug, but probably not \"fully arrived\" given the short window",
+            "Body fat: ~15-16% (before final cut)",
+          ]),
+      ),
+      section(
+        "Final Polish — Late May – June 2027 (~3-4 weeks)",
+        p("Goal: cut back down to reveal whatever muscle was built, sharpen for the June date.") +
+          ul([
+            "Shift back to 1,900-2,050 cal, protein stays at 180g+ to protect the new muscle.",
+            "Keep training volume (4 sets) — don't cut training just because calories drop.",
+            "Final 1-2 weeks: water intake up, sodium moderation, for peak visual definition on a specific date.",
+          ]) +
+          sub("Expected by June 2027 (Checkpoint 1, not the finish line)") +
+          ul([
+            "Body fat: ~13-14%",
+            "Stomach: flat and firm, visible abs when flexed",
+            "Arms: visibly more developed than August, but likely still the least \"finished\" part of the physique — expected, not a failure. Phase 3B is where arms actually get finished.",
+          ]),
+      ),
+      section(
+        "Phase 3B — July – Dec 2027 (unhurried second build block)",
+        p(
+          "Goal: finish what the compressed Phase 3 couldn't — primarily arm/shoulder size — without a deadline forcing rushed decisions. Only starts once June checkpoint results are actually seen — this is a template to adapt once the real starting point is known.",
+        ) +
+          ul([
+            "July 2027: reassess honestly. Take a body fat + physique check similar to the June one. Decide surplus size based on how June actually looks (bigger surplus if body fat is comfortably low; smaller if already near the top of comfort range).",
+            "July–Nov 2027 (~5 months): maintenance +200-300 surplus, 4-5 sets/exercise, continued arm/shoulder emphasis. No forced deadline means surplus phases can extend longer if muscle gain is still progressing well, or cut short if body fat creeps too high.",
+            "Dec 2027: optional second short cut (2-4 weeks) if body fat has risen enough to want to reveal the new muscle before year-end — otherwise the build can extend further into 2028 if progress is still trending well.",
+          ]) +
+          sub("Key difference from Phase 3") +
+          p("No artificial time pressure. Extend or shorten based on actual weekly Sunday tape measurements and how arms are progressing, not a fixed calendar. This is the phase where \"obviously muscular arms\" should actually arrive."),
+      ),
+      section(
+        "Tracking Checklist",
+        ul([
+          "Bodyweight — daily, track weekly average",
+          "Waist + full body-fat tape measurement — every Sunday",
+          "Progress photo — monthly, same lighting/pose/time",
+          "Lift weights/reps — every session",
+        ]),
+      ),
+      section(
+        "Key Decision Rules",
+        ul([
+          "Never below 1,900 cal, even mid-cut.",
+          "Never below 170g protein (180g+ in Phase 3/surplus).",
+          "Switch phases by the Sunday body-fat number, not the calendar.",
+          "Retest TDEE at every phase transition.",
+          "Don't stack extra cardio cuts and extra calorie cuts simultaneously.",
+          "Given the compressed Phase 3, protect the Mon/Wed/Fri lifting sessions above all else — missed sessions cost more in a short window.",
+        ]),
+      ),
+    ].join("");
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Plan</div><button id="planBack" class="btn" type="button">Back</button></div><div class="library" style="padding:12px;display:flex;flex-direction:column;gap:10px">${content}</div></section>`;
+    stage.querySelector("#planBack").addEventListener("click", showHome);
     armBackgroundTimer();
   }
   async function setPublishStamp() {

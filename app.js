@@ -813,6 +813,30 @@
       fiber: 0,
       note: "Per label: 9g total carb, 6g total sugars (6g added).",
     },
+    {
+      id: "crystallightlemonade",
+      name: "Crystal Light Lemonade",
+      serving: "1 packet (16 fl oz)",
+      calories: 10,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      sodium: 70,
+      fiber: 0,
+      note: "Per label, as prepared (16 fl oz). Also 140mg potassium. Contains soy, phenylalanine.",
+    },
+    {
+      id: "crystallightpeachtea",
+      name: "Crystal Light Peach Tea",
+      serving: "1 packet (16 fl oz)",
+      calories: 5,
+      protein: 0,
+      carbs: 0.5,
+      fat: 0,
+      sodium: 0,
+      fiber: 0,
+      note: "Per label, as prepared (16 fl oz). Carb listed as <1g. 30mg caffeine. Contains phenylalanine.",
+    },
   ];
   const DEFAULT_TEMPLATES = {
     A: {

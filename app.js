@@ -1261,7 +1261,14 @@
         ? order.slice(exerciseIndex + 1).find((x) => !complete(x.id))?.name || "Finish"
         : cur().name,
       left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-    stage.innerHTML = `<section class="timer"><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${lastLogged.weight === 0 ? "BW" : lastLogged.weight + " lb"} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Pause"}</button><button id="skip" type="button">Skip</button></div></section>`;
+    const remaining = order
+      .map((e, i) => {
+        const done = sets(e.id).length;
+        const isCurrent = i === exerciseIndex && done < 2;
+        return `<div class="setRow" style="padding:6px 10px;${done >= 2 ? "opacity:0.5" : isCurrent ? "font-weight:700" : ""}"><span>${esc(e.name)}</span><span>${done >= 2 ? "✓" : `${done}/2`}</span></div>`;
+      })
+      .join("");
+    stage.innerHTML = `<section class="timer"><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${lastLogged.weight === 0 ? "BW" : lastLogged.weight + " lb"} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Pause"}</button><button id="skip" type="button">Skip</button></div><div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
     stage.querySelector("#back").addEventListener("click", undo);
     stage.querySelector("#pause").addEventListener("click", togglePause);
     stage.querySelector("#skip").addEventListener("click", advance);
@@ -1334,11 +1341,21 @@
     phase = "swap";
     saveActive();
     const options = order.map((e, i) => ({ e, i })).filter((x) => x.i > exerciseIndex && !complete(x.e.id));
-    if (!options.length) {
+    const inOrder = new Set(order.map((e) => e.id));
+    const alts = db.exerciseArchive.filter((a) => a.type === cur().type && !inOrder.has(a.id)).slice(0, 2);
+    if (!options.length && !alts.length) {
       phase = "set";
       return showSet();
     }
-    stage.innerHTML = `<div class="head"><div class="title">Swap with</div><button id="swapBack" class="btn" type="button">Back</button></div><div class="swapList">${options.map((x) => `<button class="swapRow" data-i="${x.i}" type="button">${esc(x.e.name)}</button>`).join("")}</div>`;
+    stage.innerHTML = `<div class="head"><div class="title">Swap with</div><button id="swapBack" class="btn" type="button">Back</button></div><div class="swapList">${
+      options.length
+        ? `<div class="note" style="padding:8px 12px 0">Reorder — do later</div>${options.map((x) => `<button class="swapRow" data-i="${x.i}" type="button">${esc(x.e.name)}</button>`).join("")}`
+        : ""
+    }${
+      alts.length
+        ? `<div class="note" style="padding:8px 12px 0">Alternative — machine busy/missing</div>${alts.map((a) => `<button class="swapRow" data-alt="${a.id}" type="button">${esc(a.name)}</button>`).join("")}`
+        : ""
+    }</div>`;
     stage.querySelector("#swapBack").addEventListener("click", () => {
       phase = "set";
       showSet();
@@ -1350,6 +1367,18 @@
           t = order[exerciseIndex];
         order[exerciseIndex] = order[i];
         order[i] = t;
+        pendingWeight = null;
+        phase = "set";
+        saveActive();
+        showSet();
+      }),
+    );
+    stage.querySelectorAll("[data-alt]").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (phase !== "swap") return;
+        const a = db.exerciseArchive.find((x) => x.id === b.dataset.alt);
+        if (!a) return;
+        order[exerciseIndex] = { id: a.id, name: a.name, target: a.target, rest: a.rest, type: a.type };
         pendingWeight = null;
         phase = "set";
         saveActive();
@@ -1372,7 +1401,7 @@
     workout = null;
     order = [];
     phase = "done";
-    stage.innerHTML = `<section class="done"><strong>Done.</strong><div>${log.sets.length} sets · ${log.duration} min · saved</div><button id="doneHome" class="submit" type="button">Home</button></section>`;
+    stage.innerHTML = `<section class="done"><strong>Done.</strong><div>${log.sets.length} sets · saved</div><button id="doneHome" class="submit" type="button">Home</button></section>`;
     stage.querySelector("#doneHome").addEventListener("click", showHome);
   }
   function foodTotals(date) {
@@ -1820,7 +1849,7 @@
     stopTimer();
     if (active()) saveActive();
     phase = "history";
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${db.workoutLogs.length ? db.workoutLogs.slice().reverse().map((l) => `<div class="setRow" data-view-workout="${l.id}" style="cursor:pointer"><div><strong>${esc(l.name)}</strong><div>${new Date(l.date).toLocaleDateString()}</div></div><div style="display:flex;align-items:center;gap:10px"><span>${l.sets.length} sets · ${l.duration} min</span><button class="delete" data-delete-workout="${l.id}" type="button" aria-label="Delete">×</button></div></div>`).join("") : `<div class="setRow">No workouts yet.</div>`}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${db.workoutLogs.length ? db.workoutLogs.slice().reverse().map((l) => `<div class="setRow" data-view-workout="${l.id}" style="cursor:pointer"><div><strong>${esc(l.name)}</strong><div>${new Date(l.date).toLocaleDateString()}</div></div><div style="display:flex;align-items:center;gap:10px"><span>${l.sets.length} sets</span><button class="delete" data-delete-workout="${l.id}" type="button" aria-label="Delete">×</button></div></div>`).join("") : `<div class="setRow">No workouts yet.</div>`}</div></section>`;
     stage.querySelector("#historyBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-view-workout]").forEach((el) =>
       el.addEventListener("click", () => showWorkoutDetail(el.dataset.viewWorkout)),
@@ -1868,7 +1897,18 @@
             .join("")}</div>`,
       )
       .join("");
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}<button class="submit" id="saveWorkoutDetail" style="margin:8px" type="button">Save</button></div></section>`;
+    const addForm = db.exerciseArchive.length
+      ? `<form id="addSetForm" class="form" style="display:flex;flex-direction:column;gap:8px;margin:8px">
+          <strong>Add exercise</strong>
+          <select id="addSetExercise">${db.exerciseArchive.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input id="addSetWeight" type="number" step="0.5" min="0" placeholder="Weight (lb, 0=BW)">
+            <input id="addSetReps" type="number" step="1" min="0" placeholder="Reps" required>
+          </div>
+          <button class="submit" style="margin-top:0" type="submit">Add set</button>
+        </form>`
+      : "";
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}${addForm}<button class="submit" id="saveWorkoutDetail" style="margin:8px" type="button">Save</button></div></section>`;
     stage.querySelector("#detailBack").addEventListener("click", showHistory);
     stage.querySelector("#saveWorkoutDetail").addEventListener("click", () => {
       log.sets = log.sets.map((s, i) => {
@@ -1898,6 +1938,22 @@
         });
       }),
     );
+    const addSetForm = stage.querySelector("#addSetForm");
+    if (addSetForm) {
+      addSetForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const exId = stage.querySelector("#addSetExercise").value;
+        const ex = db.exerciseArchive.find((a) => a.id === exId);
+        if (!ex) return;
+        const weight = Number(stage.querySelector("#addSetWeight").value) || 0;
+        const reps = Number(stage.querySelector("#addSetReps").value);
+        if (!Number.isFinite(reps) || reps <= 0) return;
+        const setNum = log.sets.filter((s) => s.id === exId).length + 1;
+        log.sets.push({ id: exId, name: ex.name, set: setNum, weight, reps });
+        saveDB();
+        showWorkoutDetail(id);
+      });
+    }
     armBackgroundTimer();
   }
   function slugify(name) {

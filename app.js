@@ -1756,15 +1756,34 @@
       )
       .join("");
   }
+  function estimateCardioCalories(c) {
+    const lw = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+    const kg = lw && Number.isFinite(Number(lw.weight)) ? Number(lw.weight) * 0.453592 : 79.4;
+    let met;
+    if (c.machine === "treadmill") {
+      const speed = c.speed || (c.mode === "walk" ? 3 : 5.5);
+      const grade = (c.incline || 0) / 100;
+      const speedMmin = speed * 26.8224;
+      const isWalk = c.mode === "walk" || speed < 4;
+      const vo2 = isWalk ? 0.1 * speedMmin + 1.8 * speedMmin * grade + 3.5 : 0.2 * speedMmin + 0.9 * speedMmin * grade + 3.5;
+      met = vo2 / 3.5;
+    } else {
+      const r = c.resistance || 10;
+      met = r <= 8 ? 5.5 : r <= 16 ? 7 : r <= 24 ? 9 : 11;
+    }
+    return Math.round(met * kg * (c.duration / 60));
+  }
   function formatCardioLine(c) {
     const parts = [`${c.duration} min`];
     if (c.machine === "treadmill") {
       if (c.speed) parts.push(`${c.speed} mph`);
       if (c.incline) parts.push(`${c.incline}% incline`);
+      parts.push(`~${estimateCardioCalories(c)} cal`);
       return `${c.mode === "walk" ? "Walk" : "Run"} · ${parts.join(" · ")}`;
     }
     if (c.resistance) parts.push(`resistance ${c.resistance}`);
     if (c.distance) parts.push(`${c.distance} mi`);
+    parts.push(`~${estimateCardioCalories(c)} cal`);
     return `Bike · ${parts.join(" · ")}`;
   }
   function showCardio() {

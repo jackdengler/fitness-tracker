@@ -1605,7 +1605,8 @@
       (byDate[x.date] || (byDate[x.date] = [])).push(x);
     });
     const dates = Object.keys(byDate).sort().reverse();
-    return dates
+    const head = `<div class="foodTableHead"><span>Day</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span>Na</span><span>Fi</span><span></span></div>`;
+    const body = dates
       .map((date) => {
         const items = byDate[date];
         const totals = items.reduce(
@@ -1614,9 +1615,11 @@
             a.protein += x.protein || 0;
             a.carbs += x.carbs || 0;
             a.fat += x.fat || 0;
+            a.sodium += x.sodium || 0;
+            a.fiber += x.fiber || 0;
             return a;
           },
-          { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0 },
         );
         const isToday = date === d;
         const rows = items
@@ -1624,12 +1627,14 @@
           .reverse()
           .map((x) => renderFoodRow(x))
           .join("");
-        return `<details ${isToday ? "open" : ""}><summary style="font-size:13px;padding:10px 12px;margin:0;background:light-dark(#ecece8,#141614)">${formatDayLabel(date)}${isToday ? " · today" : ""} · ${Math.round(totals.calories)} cal · ${r1(totals.protein)}g P · ${r1(totals.carbs)}g C · ${r1(totals.fat)}g F</summary><div>${rows}</div></details>`;
+        const label = `${formatDayLabel(date)}${isToday ? " · today" : ""}`;
+        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${Math.round(totals.calories)}</span><span>${r1(totals.protein)}</span><span>${r1(totals.carbs)}</span><span>${r1(totals.fat)}</span><span>${Math.round(totals.sodium)}</span><span>${r1(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
       })
       .join("");
+    return `${head}<div class="foodDayList">${body}</div>`;
   }
   function renderFoodRow(x) {
-    return `<div class="logRow" data-view-food="${x.id}" style="cursor:pointer"><div class="logTop"><div><div class="foodName">${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</div><div class="serving">${esc(x.serving || "")}</div><div class="macroLine">${x.approx ? "~" : ""}${x.calories} cal · ${r1(x.protein)}g P · ${r1(x.carbs)}g C · ${r1(x.fat)}g F · ${Math.round(x.sodium || 0)}mg Na · ${r1(x.fiber)}g fiber</div></div><button class="delete" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></div></div>`;
+    return `<div class="foodItemRow" data-view-food="${x.id}"><div class="foodTableRow"><span><span class="cellName">${x.approx ? "~" : ""}${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</span></span><span>${x.calories}</span><span>${r1(x.protein)}</span><span>${r1(x.carbs)}</span><span>${r1(x.fat)}</span><span>${Math.round(x.sodium || 0)}</span><span>${r1(x.fiber)}</span><span><button class="foodDeleteBtn" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></span></div></div>`;
   }
   function showFoodDetail(id) {
     stopTimer();

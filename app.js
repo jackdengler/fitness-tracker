@@ -1212,7 +1212,7 @@
     weight = w;
     pendingWeight = null;
     reps = e.target;
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="exerciseHead"><div class="exerciseTitle"><div class="exerciseName">${esc(e.name)}</div><div class="exerciseMeta">${exerciseIndex + 1}/${order.length} · SET ${sets(e.id).length + 1}/2</div></div><button id="swap" class="btn" type="button">Swap</button></div><div class="picker"><div class="half"><div class="label">Weight · swipe ↔</div><div id="weights" class="rail">${weightVals(e).map((v) => `<button class="choice ${v === w ? "selected" : ""}" data-w="${v}" type="button">${v === 0 ? "BW" : v}</button>`).join("")}</div></div><div class="half"><div class="label">Reps · tap to log · target ${e.target}</div><div id="reps" class="rail">${Array.from({ length: 25 }, (_, i) => i + 1).map((v) => `<button class="choice ${v === e.target ? "target selected" : ""}" data-r="${v}" type="button">${v}</button>`).join("")}</div></div></div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="exerciseHead"><div class="exerciseTitle"><div class="exerciseName">${esc(e.name)}</div><div class="exerciseMeta">${exerciseIndex + 1}/${order.length} · SET ${sets(e.id).length + 1}/2</div></div><button id="swap" class="btn" type="button">Swap</button><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div class="picker"><div class="half"><div class="label">Weight · swipe ↔</div><div id="weights" class="rail">${weightVals(e).map((v) => `<button class="choice ${v === w ? "selected" : ""}" data-w="${v}" type="button">${v === 0 ? "BW" : v}</button>`).join("")}</div></div><div class="half"><div class="label">Reps · tap to log · target ${e.target}</div><div id="reps" class="rail">${Array.from({ length: 25 }, (_, i) => i + 1).map((v) => `<button class="choice ${v === e.target ? "target selected" : ""}" data-r="${v}" type="button">${v}</button>`).join("")}</div></div></div></section>`;
     stage.querySelectorAll("[data-w]").forEach((b) =>
       b.addEventListener("click", () => {
         if (phase !== "set") return;
@@ -1229,6 +1229,8 @@
       }),
     );
     stage.querySelector("#swap").addEventListener("click", showSwap);
+    stage.querySelector("#pauseWorkout").addEventListener("click", showHome);
+    stage.querySelector("#endWorkout").addEventListener("click", endWorkout);
     requestAnimationFrame(() => {
       stage.querySelector("#weights .selected")?.scrollIntoView({ inline: "center", block: "nearest" });
       stage.querySelector("#reps .selected")?.scrollIntoView({ inline: "center", block: "nearest" });
@@ -1268,10 +1270,12 @@
         return `<div class="setRow" style="padding:6px 10px;${done >= 2 ? "opacity:0.5" : isCurrent ? "font-weight:700" : ""}"><span>${esc(e.name)}</span><span>${done >= 2 ? "✓" : `${done}/2`}</span></div>`;
       })
       .join("");
-    stage.innerHTML = `<section class="timer"><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${lastLogged.weight === 0 ? "BW" : lastLogged.weight + " lb"} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Pause"}</button><button id="skip" type="button">Skip</button></div><div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
+    stage.innerHTML = `<section class="timer"><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;width:100%"><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${lastLogged.weight === 0 ? "BW" : lastLogged.weight + " lb"} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Hold"}</button><button id="skip" type="button">Skip</button></div><div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
     stage.querySelector("#back").addEventListener("click", undo);
     stage.querySelector("#pause").addEventListener("click", togglePause);
     stage.querySelector("#skip").addEventListener("click", advance);
+    stage.querySelector("#pauseWorkout").addEventListener("click", showHome);
+    stage.querySelector("#endWorkout").addEventListener("click", endWorkout);
     if (!paused) {
       tick();
       if (phase === "rest") timer = setInterval(tick, 250);
@@ -1385,6 +1389,17 @@
         showSet();
       }),
     );
+  }
+  function endWorkout() {
+    stopTimer();
+    if (!session.length) {
+      clearActive();
+      workout = null;
+      order = [];
+      showHome();
+      return;
+    }
+    finish();
   }
   function finish() {
     stopTimer();

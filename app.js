@@ -1837,21 +1837,54 @@
     if (!log) return showHistory();
     const groups = [];
     const byId = {};
-    log.sets.forEach((s) => {
+    log.sets.forEach((s, i) => {
       if (!byId[s.id]) {
         byId[s.id] = { name: s.name, sets: [] };
         groups.push(byId[s.id]);
       }
-      byId[s.id].sets.push(s);
+      byId[s.id].sets.push({ ...s, idx: i });
     });
     const rows = groups
       .map(
         (g) =>
-          `<div class="setRow" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>${esc(g.name)}</strong>${g.sets.map((s) => `<div>Set ${s.set}: ${s.weight === 0 ? "BW" : s.weight + " lb"} × ${s.reps}</div>`).join("")}</div>`,
+          `<div class="setRow" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>${esc(g.name)}</strong>${g.sets
+            .map(
+              (s) =>
+                `<div style="display:flex;align-items:center;gap:6px;width:100%" data-set-row="${s.idx}"><span style="min-width:42px">Set ${s.set}:</span><input type="number" step="0.5" min="0" value="${s.weight}" data-set-weight="${s.idx}" style="width:64px;min-height:32px;padding:0 6px;text-align:center">lb ×<input type="number" step="1" min="0" value="${s.reps}" data-set-reps="${s.idx}" style="width:52px;min-height:32px;padding:0 6px;text-align:center"><button class="delete" data-remove-set="${s.idx}" type="button" aria-label="Remove set">×</button></div>`,
+            )
+            .join("")}</div>`,
       )
       .join("");
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}<button class="submit" id="saveWorkoutDetail" style="margin:8px" type="button">Save</button></div></section>`;
     stage.querySelector("#detailBack").addEventListener("click", showHistory);
+    stage.querySelector("#saveWorkoutDetail").addEventListener("click", () => {
+      log.sets = log.sets.map((s, i) => {
+        const wEl = stage.querySelector(`[data-set-weight="${i}"]`);
+        const rEl = stage.querySelector(`[data-set-reps="${i}"]`);
+        const weight = wEl ? Number(wEl.value) : s.weight;
+        const reps = rEl ? Number(rEl.value) : s.reps;
+        return {
+          ...s,
+          weight: Number.isFinite(weight) && weight >= 0 ? weight : s.weight,
+          reps: Number.isFinite(reps) && reps >= 0 ? reps : s.reps,
+        };
+      });
+      saveDB();
+      showHistory();
+    });
+    stage.querySelectorAll("[data-remove-set]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const i = Number(b.dataset.removeSet);
+        const [removed] = log.sets.splice(i, 1);
+        saveDB();
+        showWorkoutDetail(id);
+        showUndoToast(`Removed set ${removed.set} of ${removed.name}`, () => {
+          log.sets.splice(i, 0, removed);
+          saveDB();
+          if (phase === "workoutDetail") showWorkoutDetail(id);
+        });
+      }),
+    );
     armBackgroundTimer();
   }
   function slugify(name) {

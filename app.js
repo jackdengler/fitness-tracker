@@ -1667,13 +1667,13 @@
           .map((x) => renderFoodRow(x))
           .join("");
         const label = `${formatDayLabel(date)}${isToday ? " · today" : ""}`;
-        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${Math.round(totals.calories)}</span><span>${r1(totals.protein)}</span><span>${r1(totals.carbs)}</span><span>${r1(totals.fat)}</span><span>${Math.round(totals.sodium)}</span><span>${r1(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
+        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${Math.round(totals.calories)}</span><span>${Math.round(totals.protein)}</span><span>${Math.round(totals.carbs)}</span><span>${Math.round(totals.fat)}</span><span>${Math.round(totals.sodium)}</span><span>${Math.round(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
       })
       .join("");
     return `${head}<div class="foodDayList">${body}</div>`;
   }
   function renderFoodRow(x) {
-    return `<div class="foodItemRow" data-view-food="${x.id}"><div class="foodTableRow"><span><span class="cellName">${x.approx ? "~" : ""}${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</span></span><span>${x.calories}</span><span>${r1(x.protein)}</span><span>${r1(x.carbs)}</span><span>${r1(x.fat)}</span><span>${Math.round(x.sodium || 0)}</span><span>${r1(x.fiber)}</span><span><button class="foodDeleteBtn" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></span></div></div>`;
+    return `<div class="foodItemRow" data-view-food="${x.id}"><div class="foodTableRow"><span><span class="cellName">${x.approx ? "~" : ""}${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</span></span><span>${Math.round(x.calories)}</span><span>${Math.round(x.protein || 0)}</span><span>${Math.round(x.carbs || 0)}</span><span>${Math.round(x.fat || 0)}</span><span>${Math.round(x.sodium || 0)}</span><span>${Math.round(x.fiber || 0)}</span><span><button class="foodDeleteBtn" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></span></div></div>`;
   }
   function showFoodDetail(id) {
     stopTimer();

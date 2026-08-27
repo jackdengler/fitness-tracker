@@ -1443,8 +1443,9 @@
     if (active()) saveActive();
     phase = "foodHistory";
     const d = dayKey();
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="foodHistoryBack" class="btn" type="button">Back</button></div><div class="library">${renderToday(d)}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><div style="display:flex;gap:8px"><button id="openAdHocFood" class="btn" type="button">+ Add</button><button id="foodHistoryBack" class="btn" type="button">Back</button></div></div><div class="library">${renderToday(d)}</div></section>`;
     stage.querySelector("#foodHistoryBack").addEventListener("click", () => showFood("meals"));
+    stage.querySelector("#openAdHocFood").addEventListener("click", showAdHocFood);
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1464,6 +1465,52 @@
     stage.querySelectorAll("[data-view-food]").forEach((el) =>
       el.addEventListener("click", () => showFoodDetail(el.dataset.viewFood)),
     );
+    armBackgroundTimer();
+  }
+  function showAdHocFood() {
+    stopTimer();
+    if (active()) saveActive();
+    phase = "adHocFood";
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Add Food</div><button id="adHocBack" class="btn" type="button">Back</button></div><div class="library"><form id="adHocForm" class="form" style="display:flex;flex-direction:column;gap:8px">
+      <input id="adHocName" type="text" placeholder="Name" required>
+      <input id="adHocCalories" type="number" inputmode="decimal" placeholder="Calories" required>
+      <details><summary>+ Protein, carbs, fat, sodium, fiber</summary>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <input id="adHocProtein" type="number" inputmode="decimal" step="0.1" placeholder="Protein (g)">
+          <input id="adHocCarbs" type="number" inputmode="decimal" step="0.1" placeholder="Carbs (g)">
+          <input id="adHocFat" type="number" inputmode="decimal" step="0.1" placeholder="Fat (g)">
+          <input id="adHocSodium" type="number" inputmode="decimal" placeholder="Sodium (mg)">
+          <input id="adHocFiber" type="number" inputmode="decimal" step="0.1" placeholder="Fiber (g)">
+        </div>
+      </details>
+      <button class="submit" type="submit">Add</button>
+    </form></div></section>`;
+    stage.querySelector("#adHocBack").addEventListener("click", showFoodHistory);
+    stage.querySelector("#adHocForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = (stage.querySelector("#adHocName").value || "").trim();
+      const calories = Number(stage.querySelector("#adHocCalories").value);
+      if (!name || !Number.isFinite(calories)) return;
+      const num = (id) => {
+        const v = Number(stage.querySelector(id).value);
+        return Number.isFinite(v) ? v : 0;
+      };
+      db.foodLogs.push({
+        id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
+        date: dayKey(),
+        name,
+        serving: "",
+        calories,
+        protein: num("#adHocProtein"),
+        carbs: num("#adHocCarbs"),
+        fat: num("#adHocFat"),
+        sodium: num("#adHocSodium"),
+        fiber: num("#adHocFiber"),
+        approx: false,
+      });
+      saveDB();
+      showFoodHistory();
+    });
     armBackgroundTimer();
   }
   function ingredientSpec(spec) {

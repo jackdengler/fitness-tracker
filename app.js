@@ -147,7 +147,7 @@
     protein: { min: 170 },
     carbs: { min: 140 },
     fat: { min: 50 },
-    fiber: { min: 25 },
+    fiber: { min: 18 },
   };
   function targetLabel(key) {
     const t = targets[key];

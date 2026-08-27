@@ -572,6 +572,18 @@
       other: "USDA per-100g raw avocado: 160 cal, 2g protein, 8.53g carb, 14.66g fat, 7mg sodium, 6.7g fiber.",
       approx: true,
     },
+    raspberriesg: {
+      name: "Raspberries",
+      serving: "g",
+      calories: 0.5161,
+      protein: 0.0113,
+      carbs: 0.1129,
+      fat: 0.0065,
+      sodium: 0.0161,
+      fiber: 0.0645,
+      other: "Per-gram, derived from USDA raw-raspberry values (~62g = 32 cal, 0.7g protein, 7g carb, 0.4g fat, 1mg sodium, 4g fiber).",
+      approx: true,
+    },
     broccoli170g: {
       name: "Broccoli, steamed/roasted",
       serving: "170g",
@@ -737,7 +749,7 @@
     {
       id: "raspberries",
       name: "Raspberries",
-      serving: "½ cup",
+      serving: "½ cup (~62g)",
       calories: 32,
       protein: 0.7,
       carbs: 7,
@@ -745,7 +757,8 @@
       sodium: 1,
       fiber: 4,
       approx: true,
-      note: "Fat, sodium, and fiber estimated from USDA raw-raspberry values for ~62g (not label-supplied).",
+      note: "Gram-adjustable — default is 62g (~½ cup); edit its qty to your exact amount. Fat, sodium, and fiber estimated from USDA raw-raspberry values (not label-supplied).",
+      ingredientIds: [["raspberriesg", 62]],
     },
   ];
   const drinks = [

@@ -480,6 +480,17 @@
       sodium: 0,
       fiber: 3.8,
     },
+    peasbirdseye: {
+      name: "Peas (Birds Eye)",
+      serving: "g",
+      calories: 0.8046,
+      protein: 0.046,
+      carbs: 0.1379,
+      fat: 0,
+      sodium: 0,
+      fiber: 0.046,
+      other: "Per-gram values from label: 2/3 cup (87g) frozen = 70 cal, 12g carb, 4g fiber, 4g sugar, 4g protein, 0mg sodium.",
+    },
     egg: {
       name: "Egg (large)",
       serving: "1 egg",
@@ -684,7 +695,7 @@
       sodium: 695,
       fiber: 5.1,
       approx: true,
-      note: "Totals are the exact sum of the 13 listed ingredients. Beef is gram-adjustable (like the chicken wrap) — default is ½ lb (227g) cooked; edit its qty to your exact amount.",
+      note: "Totals are the exact sum of the 13 listed ingredients (peas default to 0g and aren't counted). Beef is gram-adjustable (like the chicken wrap) — default is ½ lb (227g) cooked; edit its qty to your exact amount. To swap peas for edamame, set edamame's qty to 0 and peas' qty to however many grams you want (one serving is 87g) in the ingredient editor.",
       ingredientIds: [
         ["groundbeef937", 227],
         "avocadooilspray",
@@ -699,6 +710,7 @@
         "sesameseeds",
         "whitericeuncooked",
         "edamamekroger",
+        ["peasbirdseye", 0],
       ],
     },
     {

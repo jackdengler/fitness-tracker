@@ -835,6 +835,18 @@
       note: "Per label: 9g total carb, 6g total sugars (6g added).",
     },
     {
+      id: "monsterzerosugar",
+      name: "Monster Zero Sugar (Carnitine)",
+      serving: "1 can",
+      calories: 10,
+      protein: 0,
+      carbs: 6,
+      fat: 0,
+      sodium: 380,
+      fiber: 0,
+      note: "Per label: 6g total carb (0g sugar, 0g added sugar), 2g erythritol.",
+    },
+    {
       id: "crystallightlemonade",
       name: "Crystal Light Lemonade",
       serving: "1 packet (16 fl oz)",

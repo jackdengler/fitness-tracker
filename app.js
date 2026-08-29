@@ -1627,9 +1627,10 @@
           a.fat += x.fat || 0;
           a.sodium += x.sodium || 0;
           a.fiber += x.fiber || 0;
+          a.approx = a.approx || !!x.approx;
           return a;
         },
-        { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0 },
+        { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0, approx: false },
       );
   }
   function macroLine(x) {
@@ -1643,7 +1644,7 @@
       t = foodTotals(d);
     const library =
       tab === "meals" ? renderFoodList(meals) : tab === "snacks" ? renderFoodList(snacks) : renderFoodList(drinks);
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricStatus(t.calories, "calories")}">${Math.round(t.calories)}</div><div>${targetLabel("calories")}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricStatus(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricStatus(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricStatus(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricStatus(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button id="openFoodHistory" type="button">History</button></div><div class="library">${library}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricStatus(t.calories, "calories")}">${t.approx ? "~" : ""}${Math.round(t.calories)}</div><div>${targetLabel("calories")}${t.approx ? " · incl. estimate" : ""}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricStatus(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricStatus(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricStatus(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricStatus(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button id="openFoodHistory" type="button">History</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
     stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));
@@ -1686,6 +1687,7 @@
     stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Add Food</div><button id="adHocBack" class="btn" type="button">Back</button></div><div class="library"><form id="adHocForm" class="form" style="display:flex;flex-direction:column;gap:8px">
       <input id="adHocName" type="text" placeholder="Name" required>
       <input id="adHocCalories" type="number" inputmode="decimal" placeholder="Calories" required>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="adHocApprox" type="checkbox" style="width:auto;min-height:auto" checked>Estimate (eating out / not exact)</label>
       <details><summary>+ Protein, carbs, fat, sodium, fiber</summary>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
           <input id="adHocProtein" type="number" inputmode="decimal" step="0.1" placeholder="Protein (g)">
@@ -1718,7 +1720,7 @@
         fat: num("#adHocFat"),
         sodium: num("#adHocSodium"),
         fiber: num("#adHocFiber"),
-        approx: false,
+        approx: !!stage.querySelector("#adHocApprox").checked,
       });
       saveDB();
       showFoodHistory();
@@ -1829,9 +1831,10 @@
             a.fat += x.fat || 0;
             a.sodium += x.sodium || 0;
             a.fiber += x.fiber || 0;
+            a.approx = a.approx || !!x.approx;
             return a;
           },
-          { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0 },
+          { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0, approx: false },
         );
         const isToday = date === d;
         const rows = items
@@ -1839,8 +1842,8 @@
           .reverse()
           .map((x) => renderFoodRow(x))
           .join("");
-        const label = `${formatDayLabel(date)}${isToday ? " · today" : ""}`;
-        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${Math.round(totals.calories)}</span><span>${Math.round(totals.protein)}</span><span>${Math.round(totals.carbs)}</span><span>${Math.round(totals.fat)}</span><span>${Math.round(totals.sodium)}</span><span>${Math.round(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
+        const label = `${formatDayLabel(date)}${isToday ? " · today" : ""}${totals.approx ? " · ~estimate" : ""}`;
+        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${totals.approx ? "~" : ""}${Math.round(totals.calories)}</span><span>${Math.round(totals.protein)}</span><span>${Math.round(totals.carbs)}</span><span>${Math.round(totals.fat)}</span><span>${Math.round(totals.sodium)}</span><span>${Math.round(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
       })
       .join("");
     return `${head}<div class="foodDayList">${body}</div>`;

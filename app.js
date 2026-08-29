@@ -1684,8 +1684,10 @@
     stopTimer();
     if (active()) saveActive();
     phase = "adHocFood";
+    const today = dayKey();
     stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Add Food</div><button id="adHocBack" class="btn" type="button">Back</button></div><div class="library"><form id="adHocForm" class="form" style="display:flex;flex-direction:column;gap:8px">
       <input id="adHocName" type="text" placeholder="Name" required>
+      <input id="adHocDate" type="date" value="${today}" max="${today}" required>
       <input id="adHocCalories" type="number" inputmode="decimal" placeholder="Calories" required>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="adHocApprox" type="checkbox" style="width:auto;min-height:auto" checked>Estimate (eating out / not exact)</label>
       <details><summary>+ Protein, carbs, fat, sodium, fiber</summary>
@@ -1704,6 +1706,7 @@
       e.preventDefault();
       const name = (stage.querySelector("#adHocName").value || "").trim();
       const calories = Number(stage.querySelector("#adHocCalories").value);
+      const date = stage.querySelector("#adHocDate").value || dayKey();
       if (!name || !Number.isFinite(calories)) return;
       const num = (id) => {
         const v = Number(stage.querySelector(id).value);
@@ -1711,7 +1714,7 @@
       };
       db.foodLogs.push({
         id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
-        date: dayKey(),
+        date,
         name,
         serving: "",
         calories,

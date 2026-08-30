@@ -1904,9 +1904,10 @@
           if (macroEl) macroEl.textContent = ingredientMacroLine(list[i], list[i].qty);
         });
         const totalsEl = stage.querySelector("[data-ing-totals]");
-        if (totalsEl) totalsEl.textContent = macroLine(Object.assign(sumIngredients(list), { approx: x.approx }));
+        if (totalsEl) totalsEl.textContent = macroLine(Object.assign(sumIngredients(list), { approx: stage.querySelector("#editApprox").checked }));
       };
       stage.querySelectorAll("[data-ing-qty]").forEach((input) => input.addEventListener("input", update));
+      stage.querySelector("#editApprox").addEventListener("change", update);
       stage.querySelector("#saveFoodIngredients").addEventListener("click", () => {
         const name = (stage.querySelector('[data-edit-field="name"]')?.value || "").trim();
         if (name) x.name = name;
@@ -1922,6 +1923,7 @@
         x.fat = totals.fat;
         x.sodium = totals.sodium;
         x.fiber = totals.fiber;
+        x.approx = !!stage.querySelector("#editApprox").checked;
         saveDB();
         showFoodHistory();
       });
@@ -1941,6 +1943,7 @@
         x.fat = num("fat", x.fat);
         x.sodium = num("sodium", x.sodium);
         x.fiber = num("fiber", x.fiber);
+        x.approx = !!stage.querySelector("#editApprox").checked;
         saveDB();
         showFoodHistory();
       });
@@ -1958,6 +1961,7 @@
         <input data-edit-field="sodium" type="number" value="${x.sodium || 0}" placeholder="Sodium (mg)">
         <input data-edit-field="fiber" type="number" step="0.1" value="${x.fiber || 0}" placeholder="Fiber (g)">
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="editApprox" type="checkbox" style="width:auto;min-height:auto" ${x.approx ? "checked" : ""}>Estimate (not exact)</label>
       <button class="submit" id="saveFood" style="margin-top:0" type="button">Save</button>`;
   }
   function ingredientMacroLine(ing, qty) {
@@ -1980,6 +1984,7 @@
     return `<input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
       <div>${rows}</div>
       <div class="macroLine" data-ing-totals>${macroLine(Object.assign(sumIngredients(x.ingredients), { approx: x.approx }))}</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="editApprox" type="checkbox" style="width:auto;min-height:auto" ${x.approx ? "checked" : ""}>Estimate (not exact)</label>
       <button class="submit" id="saveFoodIngredients" style="margin-top:0" type="button">Save</button>`;
   }
   const WAIST_DAY = 0; // 0=Sunday .. 6=Saturday

@@ -371,10 +371,45 @@
         gap: 5px;
         margin-top: 5px;
       }
-      #fitness-tracker-v13 .miniSelect {
-        min-height: 34px;
-        font-size: 12px;
-        padding: 0 6px;
+      #fitness-tracker-v13 .segRow {
+        display: grid;
+        grid-template-columns: 52px 1fr;
+        align-items: center;
+        gap: 8px;
+      }
+      #fitness-tracker-v13 .segLabel {
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      #fitness-tracker-v13 .seg {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #fitness-tracker-v13 .seg button {
+        min-height: 36px;
+        padding: 0 2px;
+        border: 0;
+        border-right: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 10.5px;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      #fitness-tracker-v13 .seg button:last-child {
+        border-right: 0;
+      }
+      #fitness-tracker-v13 .seg button.on {
+        background: light-dark(#171b18, #f2f4f0);
+        color: light-dark(#fff, #111);
       }
     </style>
   </head>

@@ -1070,6 +1070,8 @@
   }
   let cardioMachine = "treadmill";
   let editorDay = "A";
+  let newExEquip = "machine";
+  let newExMode = "total";
   let swappingExIdx = null;
   function saveDB() {
     persistLocal();
@@ -2971,19 +2973,25 @@
     swappingExIdx = null;
     renderWorkoutEditor();
   }
-  const LOAD_MODES = [
-    ["total", "Total weight"],
-    ["perSide", "Per side / hand"],
+  const EQUIP_OPTIONS = [
+    ["machine", "Machine"],
+    ["cable", "Cable"],
+    ["dumbbell", "DB"],
+    ["barbell", "BB"],
+    ["bodyweight", "Body"],
   ];
-  function equipSelect(attrs, value) {
-    return `<select class="miniSelect" ${attrs}>${Object.keys(EQUIP_LABEL)
-      .map((k) => `<option value="${k}" ${k === value ? "selected" : ""}>${EQUIP_LABEL[k]}</option>`)
-      .join("")}</select>`;
+  // "per side" reads as "per hand" for dumbbells, matching the set screen.
+  function loadOptions(equip) {
+    return [["total", "Total"], ["perSide", equip === "dumbbell" ? "Per hand" : "Per side"]];
   }
-  function modeSelect(attrs, value) {
-    return `<select class="miniSelect" ${attrs}>${LOAD_MODES.map(
-      ([k, label]) => `<option value="${k}" ${k === value ? "selected" : ""}>${label}</option>`,
-    ).join("")}</select>`;
+  function segRow(label, attr, options, value) {
+    const buttons = options
+      .map(
+        ([k, text]) =>
+          `<button type="button" ${attr} data-seg="${k}" class="${k === value ? "on" : ""}" aria-pressed="${k === value}">${esc(text)}</button>`,
+      )
+      .join("");
+    return `<div class="segRow"><span class="segLabel">${esc(label)}</span><div class="seg">${buttons}</div></div>`;
   }
   // Equipment / load mode belong to the exercise, so an edit here follows it
   // into every workout that uses it and into the archive.
@@ -2998,6 +3006,12 @@
     if (a) a[field] = value;
     saveDB();
   }
+  function rerenderEditor() {
+    const top = stage.querySelector(".library")?.scrollTop || 0;
+    renderWorkoutEditor();
+    const next = stage.querySelector(".library");
+    if (next) next.scrollTop = top;
+  }
   function renderWorkoutEditor() {
     const day = db.templates[editorDay];
     const inDay = new Set(day.ex.map((x) => x[0]));
@@ -3007,11 +3021,11 @@
         if (i === swappingExIdx) {
           return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><strong>Swap ${esc(ex[1])} for…</strong><select id="swapPick">${available.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select><div style="display:flex;gap:8px"><button class="submit" style="margin-top:0" data-confirm-swap="${i}" type="button">Confirm</button><button class="btn" data-cancel-swap type="button">Cancel</button></div></div>`;
         }
-        return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><strong>${esc(ex[1])}</strong><div style="font-size:12px;font-weight:800;color:var(--muted)">${ex[2]} reps · ${ex[3]}s rest</div></div><div style="display:flex;gap:8px"><button class="btn" data-swap-ex="${i}" type="button">Swap</button><button class="delete" data-remove-ex="${i}" type="button" aria-label="Remove ${esc(ex[1])}">×</button></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${equipSelect(`data-equip="${i}"`, ex[5])}${modeSelect(`data-loadmode="${i}"`, ex[6])}</div></div>`;
+        return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><strong>${esc(ex[1])}</strong><div style="font-size:12px;font-weight:800;color:var(--muted)">${ex[2]} reps · ${ex[3]}s rest</div></div><div style="display:flex;gap:8px"><button class="btn" data-swap-ex="${i}" type="button">Swap</button><button class="delete" data-remove-ex="${i}" type="button" aria-label="Remove ${esc(ex[1])}">×</button></div></div>${segRow("Equip", `data-equip="${i}"`, EQUIP_OPTIONS, ex[5])}${segRow("Weight", `data-loadmode="${i}"`, loadOptions(ex[5]), ex[6])}</div>`;
       })
       .join("");
     const addOptions = available.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("");
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Edit Workouts</div><button id="editorBack" class="btn" type="button">Back</button></div><div class="tabs" style="grid-template-columns:repeat(3,1fr)"><button data-day="A" class="${editorDay === "A" ? "active" : ""}" type="button">A · Mon</button><button data-day="B" class="${editorDay === "B" ? "active" : ""}" type="button">B · Wed</button><button data-day="C" class="${editorDay === "C" ? "active" : ""}" type="button">C · Fri</button></div><div class="library">${rows || `<div class="setRow">No exercises — add one below.</div>`}<form id="addFromArchiveForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>Add from archive</strong>${available.length ? `<select id="archivePick">${addOptions}</select><button class="submit" type="submit">Add</button>` : `<div class="note">Every archived exercise is already in ${editorDay}.</div>`}</form><form id="addCustomForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>New custom exercise</strong><input id="newExName" type="text" placeholder="Name" required><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="newExTarget" type="number" inputmode="decimal" value="12" placeholder="Target reps"><input id="newExRest" type="number" inputmode="decimal" value="90" placeholder="Rest (sec)"></div><select id="newExType"><option value="upper">Upper body</option><option value="lower">Lower body</option><option value="small">Small / isolation</option><option value="body">Bodyweight</option></select><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${equipSelect('id="newExEquip"', "machine")}${modeSelect('id="newExMode"', "total")}</div><button class="submit" type="submit">Add to archive + ${editorDay}</button></form></div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Edit Workouts</div><button id="editorBack" class="btn" type="button">Back</button></div><div class="tabs" style="grid-template-columns:repeat(3,1fr)"><button data-day="A" class="${editorDay === "A" ? "active" : ""}" type="button">A · Mon</button><button data-day="B" class="${editorDay === "B" ? "active" : ""}" type="button">B · Wed</button><button data-day="C" class="${editorDay === "C" ? "active" : ""}" type="button">C · Fri</button></div><div class="library">${rows || `<div class="setRow">No exercises — add one below.</div>`}<form id="addFromArchiveForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>Add from archive</strong>${available.length ? `<select id="archivePick">${addOptions}</select><button class="submit" type="submit">Add</button>` : `<div class="note">Every archived exercise is already in ${editorDay}.</div>`}</form><form id="addCustomForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>New custom exercise</strong><input id="newExName" type="text" placeholder="Name" required><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="newExTarget" type="number" inputmode="decimal" value="12" placeholder="Target reps"><input id="newExRest" type="number" inputmode="decimal" value="90" placeholder="Rest (sec)"></div><select id="newExType"><option value="upper">Upper body</option><option value="lower">Lower body</option><option value="small">Small / isolation</option><option value="body">Bodyweight</option></select>${segRow("Equip", "data-new-equip", EQUIP_OPTIONS, newExEquip)}${segRow("Weight", "data-new-mode", loadOptions(newExEquip), newExMode)}<button class="submit" type="submit">Add to archive + ${editorDay}</button></form></div></section>`;
     stage.querySelector("#editorBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-day]").forEach((b) =>
       b.addEventListener("click", () => {
@@ -3020,16 +3034,35 @@
         renderWorkoutEditor();
       }),
     );
-    stage.querySelectorAll("[data-equip]").forEach((sel) =>
-      sel.addEventListener("change", () => {
-        setExerciseField(db.templates[editorDay].ex[Number(sel.dataset.equip)][0], "equip", sel.value);
-      }),
-    );
-    stage.querySelectorAll("[data-loadmode]").forEach((sel) =>
-      sel.addEventListener("change", () => {
-        setExerciseField(db.templates[editorDay].ex[Number(sel.dataset.loadmode)][0], "mode", sel.value);
-      }),
-    );
+    const retoggle = (attr, field) =>
+      stage.querySelectorAll(`[${attr}]`).forEach((b) =>
+        b.addEventListener("click", () => {
+          const ex = db.templates[editorDay].ex[Number(b.getAttribute(attr))];
+          if (!ex || ex[field === "equip" ? 5 : 6] === b.dataset.seg) return;
+          setExerciseField(ex[0], field, b.dataset.seg);
+          rerenderEditor();
+        }),
+      );
+    retoggle("data-equip", "equip");
+    retoggle("data-loadmode", "mode");
+    // The new-exercise toggles only flip local state — re-rendering here would
+    // wipe the name/reps/rest the user is part-way through typing.
+    const pickNew = (attr, set) =>
+      stage.querySelectorAll(`[${attr}]`).forEach((b) =>
+        b.addEventListener("click", () => {
+          set(b.dataset.seg);
+          stage.querySelectorAll(`[${attr}]`).forEach((x) => {
+            x.classList.toggle("on", x === b);
+            x.setAttribute("aria-pressed", String(x === b));
+          });
+        }),
+      );
+    pickNew("data-new-equip", (v) => {
+      newExEquip = v;
+      const modeBtn = stage.querySelector('[data-new-mode][data-seg="perSide"]');
+      if (modeBtn) modeBtn.textContent = v === "dumbbell" ? "Per hand" : "Per side";
+    });
+    pickNew("data-new-mode", (v) => (newExMode = v));
     stage.querySelectorAll("[data-swap-ex]").forEach((b) =>
       b.addEventListener("click", () => {
         swappingExIdx = Number(b.dataset.swapEx);
@@ -3087,8 +3120,8 @@
       const target = Number(stage.querySelector("#newExTarget").value) || 12;
       const rest = Number(stage.querySelector("#newExRest").value) || 90;
       const type = stage.querySelector("#newExType").value;
-      const equip = stage.querySelector("#newExEquip").value;
-      const mode = stage.querySelector("#newExMode").value;
+      const equip = newExEquip;
+      const mode = newExMode;
       const id = slugify(name);
       db.exerciseArchive.push({ id, name, target, rest, type, equip, mode });
       db.templates[editorDay].ex.push([id, name, target, rest, type, equip, mode]);

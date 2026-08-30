@@ -108,20 +108,11 @@
     try {
       const remote = await ghGet();
       if (remote) {
-        db = Object.assign(
-          {
-            foodLogs: [],
-            weightLogs: [],
-            waistLogs: [],
-            workoutLogs: [],
-            cardioLogs: [],
-            liftHistory: {},
-            activeWorkout: null,
-          },
-          remote,
-        );
+        db = withDefaults(remote);
+        const migrated = runMigrations();
         ensureTemplates();
         persistLocal();
+        if (migrated) await ghPut(db);
         if (phase === "home") showHome();
       } else {
         await ghPut(db);
@@ -884,62 +875,103 @@
       note: "Per label, as prepared (16 fl oz). Carb listed as <1g. 30mg caffeine. Contains phenylalanine.",
     },
   ];
+  // Exercise metadata. `equip` is how the movement is loaded; `mode` is whether
+  // the number you dial in is the total load or the load on each side (plate-
+  // loaded machines) / in each hand (dumbbells). Both are editable per exercise
+  // in Edit Workouts — these are just the shipped defaults.
+  const EQUIP_LABEL = {
+    machine: "Machine",
+    cable: "Cable",
+    dumbbell: "Dumbbell",
+    barbell: "Barbell",
+    bodyweight: "Bodyweight",
+  };
+  const EXERCISE_META = {
+    legpress: { name: "Leg press", equip: "machine", mode: "perSide" },
+    chestpress: { name: "Chest press", equip: "machine", mode: "total" },
+    row: { name: "Seated row", equip: "machine", mode: "total" },
+    legcurl: { name: "Seated leg curl", equip: "machine", mode: "total" },
+    biceps: { name: "Biceps curl", equip: "machine", mode: "total" },
+    triceps: { name: "Triceps pressdown", equip: "cable", mode: "total" },
+    abs: { name: "Ab crunch", equip: "machine", mode: "total" },
+    hacksquat: { name: "Hack squat", equip: "machine", mode: "perSide" },
+    pulldown: { name: "Lat pulldown", equip: "machine", mode: "total" },
+    shoulderpress: { name: "Shoulder press", equip: "machine", mode: "total" },
+    pecdeck: { name: "Pec fly", equip: "machine", mode: "total" },
+    lateral: { name: "Lateral raise", equip: "dumbbell", mode: "perSide" },
+    cablecurl: { name: "Cable biceps curl", equip: "cable", mode: "total" },
+    kneeraise: { name: "Knee raise", equip: "bodyweight", mode: "total" },
+    inclinepress: { name: "Incline chest press", equip: "machine", mode: "total" },
+    supportedrow: { name: "Chest-supported row", equip: "machine", mode: "total" },
+    legextension: { name: "Leg extension", equip: "machine", mode: "total" },
+    reversepec: { name: "Reverse pec fly", equip: "machine", mode: "total" },
+    preachercurl: { name: "Preacher curl", equip: "machine", mode: "total" },
+    overheadtri: { name: "Overhead triceps extension", equip: "cable", mode: "total" },
+  };
+  function metaEx(id, target, rest, type) {
+    const m = EXERCISE_META[id] || {};
+    return [id, m.name || id, target, rest, type, m.equip || "machine", m.mode || "total"];
+  }
+  // A = Monday, B = Wednesday, C = Friday. The three sessions were rotated one
+  // slot in Aug 2026 (old C → A, old A → B, old B → C) and renamed so the
+  // letters still run in weekday order; migrateDb() does the same to saved data.
   const DEFAULT_TEMPLATES = {
     A: {
       name: "Workout A",
       ex: [
-        ["legpress", "Leg press", 12, 120, "lower"],
-        ["chestpress", "Machine chest press", 12, 120, "upper"],
-        ["row", "Seated row", 12, 120, "upper"],
-        ["legcurl", "Seated leg curl", 15, 90, "lower2"],
-        ["biceps", "Biceps curl machine", 15, 75, "small"],
-        ["triceps", "Triceps pressdown", 15, 75, "small"],
-        ["abs", "Ab crunch machine", 15, 75, "small"],
+        metaEx("legpress", 12, 120, "lower"),
+        metaEx("inclinepress", 12, 120, "upper"),
+        metaEx("supportedrow", 12, 120, "upper"),
+        metaEx("legextension", 15, 90, "lower2"),
+        metaEx("reversepec", 15, 75, "small"),
+        metaEx("preachercurl", 15, 75, "small"),
+        metaEx("overheadtri", 15, 75, "small"),
+        metaEx("abs", 15, 75, "small"),
       ],
     },
     B: {
       name: "Workout B",
       ex: [
-        ["hacksquat", "Hack squat", 12, 120, "lower"],
-        ["pulldown", "Lat pulldown", 12, 120, "upper"],
-        ["shoulderpress", "Shoulder press", 12, 120, "upper"],
-        ["pecdeck", "Pec deck", 15, 90, "small"],
-        ["lateral", "Lateral raise", 15, 75, "small"],
-        ["cablecurl", "Cable biceps curl", 15, 75, "small"],
-        ["kneeraise", "Knee raise", 15, 75, "body"],
+        metaEx("legpress", 12, 120, "lower"),
+        metaEx("chestpress", 12, 120, "upper"),
+        metaEx("row", 12, 120, "upper"),
+        metaEx("legcurl", 15, 90, "lower2"),
+        metaEx("biceps", 15, 75, "small"),
+        metaEx("triceps", 15, 75, "small"),
+        metaEx("abs", 15, 75, "small"),
       ],
     },
     C: {
       name: "Workout C",
       ex: [
-        ["legpress", "Leg press", 12, 120, "lower"],
-        ["inclinepress", "Incline chest press", 12, 120, "upper"],
-        ["supportedrow", "Chest-supported row", 12, 120, "upper"],
-        ["legextension", "Leg extension", 15, 90, "lower2"],
-        ["reversepec", "Reverse pec deck", 15, 75, "small"],
-        ["preachercurl", "Preacher curl", 15, 75, "small"],
-        ["overheadtri", "Overhead triceps extension", 15, 75, "small"],
-        ["abs", "Ab crunch machine", 15, 75, "small"],
+        metaEx("hacksquat", 12, 120, "lower"),
+        metaEx("pulldown", 12, 120, "upper"),
+        metaEx("shoulderpress", 12, 120, "upper"),
+        metaEx("pecdeck", 15, 90, "small"),
+        metaEx("lateral", 15, 75, "small"),
+        metaEx("cablecurl", 15, 75, "small"),
+        metaEx("kneeraise", 15, 75, "body"),
       ],
     },
   };
-  function loadDB() {
-    try {
-      const x = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (x)
-        return Object.assign(
-          {
-            foodLogs: [],
-            weightLogs: [],
-            waistLogs: [],
-            workoutLogs: [],
-            cardioLogs: [],
-            liftHistory: {},
-            activeWorkout: null,
-          },
-          x,
-        );
-    } catch (e) {}
+  // One-time reshapes of saved data. Each runs once per device/dataset and is
+  // recorded in db.migrations so it never re-applies (a fresh install starts
+  // with them all marked done, since the shipped defaults already reflect them).
+  const MIGRATIONS = {
+    // Shift the split one slot: Monday now runs what used to be Workout C.
+    // The letters are reassigned so A/B/C still read Mon/Wed/Fri in order.
+    dayRotation2026(d) {
+      const t = d.templates;
+      if (!t || !t.A || !t.B || !t.C) return;
+      const rotated = { A: t.C.ex, B: t.A.ex, C: t.B.ex };
+      ["A", "B", "C"].forEach((k) => {
+        t[k].ex = rotated[k];
+      });
+    },
+  };
+  function freshDB() {
+    const migrations = {};
+    Object.keys(MIGRATIONS).forEach((k) => (migrations[k] = true));
     return {
       foodLogs: [],
       weightLogs: [],
@@ -948,7 +980,40 @@
       cardioLogs: [],
       liftHistory: {},
       activeWorkout: null,
+      migrations,
     };
+  }
+  function withDefaults(x) {
+    return Object.assign(
+      {
+        foodLogs: [],
+        weightLogs: [],
+        waistLogs: [],
+        workoutLogs: [],
+        cardioLogs: [],
+        liftHistory: {},
+        activeWorkout: null,
+      },
+      x,
+    );
+  }
+  function loadDB() {
+    try {
+      const x = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (x) return withDefaults(x);
+    } catch (e) {}
+    return freshDB();
+  }
+  function runMigrations() {
+    if (!db.migrations) db.migrations = {};
+    let ran = false;
+    Object.keys(MIGRATIONS).forEach((k) => {
+      if (db.migrations[k]) return;
+      MIGRATIONS[k](db);
+      db.migrations[k] = true;
+      ran = true;
+    });
+    return ran;
   }
   function cloneTemplates(src) {
     const out = {};
@@ -959,22 +1024,51 @@
     const seen = {},
       arr = [];
     Object.values(DEFAULT_TEMPLATES).forEach((t) =>
-      t.ex.forEach(([id, name, target, rest, type]) => {
+      t.ex.forEach(([id, name, target, rest, type, equip, mode]) => {
         if (seen[id]) return;
         seen[id] = true;
-        arr.push({ id, name, target, rest, type });
+        arr.push({ id, name, target, rest, type, equip, mode });
       }),
     );
     return arr;
   }
+  // Exercises saved before equipment / per-side tracking existed get backfilled
+  // from EXERCISE_META; custom exercises keep whatever the user typed.
+  function normalizeEx(id, name, equip, mode) {
+    const m = EXERCISE_META[id];
+    return {
+      name: m ? m.name : name || id,
+      equip: equip || (m ? m.equip : "machine"),
+      mode: mode || (m ? m.mode : "total"),
+    };
+  }
   function ensureTemplates() {
     if (!db.templates) db.templates = cloneTemplates(DEFAULT_TEMPLATES);
     if (!db.exerciseArchive) db.exerciseArchive = buildDefaultArchive();
+    db.exerciseArchive.forEach((a) => Object.assign(a, normalizeEx(a.id, a.name, a.equip, a.mode)));
+    const known = new Set(db.exerciseArchive.map((a) => a.id));
+    Object.values(db.templates).forEach((t) => {
+      t.ex = (t.ex || []).map((ex) => {
+        const m = normalizeEx(ex[0], ex[1], ex[5], ex[6]);
+        if (!known.has(ex[0])) {
+          known.add(ex[0]);
+          db.exerciseArchive.push({ id: ex[0], name: m.name, target: ex[2], rest: ex[3], type: ex[4], equip: m.equip, mode: m.mode });
+        }
+        return [ex[0], m.name, ex[2], ex[3], ex[4], m.equip, m.mode];
+      });
+    });
   }
   let db = loadDB();
+  const didMigrate = runMigrations();
   ensureTemplates();
+  // Record the migration immediately, otherwise the next load would re-run it
+  // against data that has already been reshaped.
+  if (didMigrate) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    } catch (e) {}
+  }
   let cardioMachine = "treadmill";
-  let cardioMode = "run";
   let editorDay = "A";
   let swappingExIdx = null;
   function saveDB() {
@@ -1023,6 +1117,396 @@
   function r1(v) {
     return Math.round((v || 0) * 10) / 10;
   }
+  function num(v) {
+    return Math.round(v || 0).toLocaleString("en-US");
+  }
+
+  // --- Dates -------------------------------------------------------------
+  // Everything user-facing goes through fmtDay/fmtDayTime so a date reads the
+  // same on every screen: "Today", "Yesterday", or "Wed, Aug 26".
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+  function dayKeyOf(d) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+  function dayKeyFromTs(ts) {
+    return dayKeyOf(new Date(ts - DAY_ROLLOVER_HOUR * 60 * 60 * 1000));
+  }
+  function parseDayKey(s) {
+    const [y, m, d] = String(s || "").split("-").map(Number);
+    if (!y || !m || !d) return new Date(NaN);
+    return new Date(y, m - 1, d);
+  }
+  function addDays(dateStr, n) {
+    const d = parseDayKey(dateStr);
+    d.setDate(d.getDate() + n);
+    return dayKeyOf(d);
+  }
+  function daysBetween(a, b) {
+    return Math.round((parseDayKey(b) - parseDayKey(a)) / 86400000);
+  }
+  function fmtDay(dateStr, opts) {
+    const o = opts || {};
+    const d = parseDayKey(dateStr);
+    if (Number.isNaN(d.valueOf())) return String(dateStr || "—");
+    const today = dayKey();
+    if (o.relative !== false) {
+      if (dateStr === today) return "Today";
+      if (dateStr === addDays(today, -1)) return "Yesterday";
+      if (o.relative === "near" && dateStr === addDays(today, 1)) return "Tomorrow";
+    }
+    const sameYear = d.getFullYear() === parseDayKey(today).getFullYear();
+    return d.toLocaleDateString("en-US", {
+      weekday: o.weekday === false ? undefined : "short",
+      month: "short",
+      day: "numeric",
+      year: sameYear ? undefined : "numeric",
+    });
+  }
+  function fmtDayShort(dateStr) {
+    return fmtDay(dateStr, { relative: false, weekday: false });
+  }
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  function fmtDayTime(ts) {
+    const t = typeof ts === "number" ? ts : Date.parse(ts);
+    if (!Number.isFinite(t)) return "—";
+    return `${fmtDay(dayKeyFromTs(t))} · ${fmtTime(t)}`;
+  }
+  function fmtMinutes(mins) {
+    const m = Math.max(0, Math.round(mins || 0));
+    return m >= 60 ? `${Math.floor(m / 60)}h ${pad2(m % 60)}m` : `${m}m`;
+  }
+
+  // --- Charts ------------------------------------------------------------
+  // Inline SVG, no dependencies (the app has no build step and runs offline).
+  // Colors come from CSS custom properties so light/dark swap in one place.
+  const CHART_W = 360;
+  let chartSpecs = {};
+  let chartSeq = 0;
+  function niceStep(range, count) {
+    const raw = range / Math.max(1, count);
+    if (!(raw > 0)) return 1;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / mag;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+  }
+  function emptyBlock(msg) {
+    return `<div class="empty" style="border:0;background:transparent;padding:18px 0">${esc(msg)}</div>`;
+  }
+  // cfg: { days:[dayKey], bars:{label,color,values}, lines:[{label,color,values,dash,dots}],
+  //        band:{min,max,label}, refs:[{label,value,dash}], fmt, unit, zero, height, empty }
+  function timeChart(cfg) {
+    const days = cfg.days || [];
+    const lines = (cfg.lines || []).filter((l) => l && l.values);
+    const bars = cfg.bars && cfg.bars.values ? cfg.bars : null;
+    const refs = cfg.refs || [];
+    const fmt = cfg.fmt || num;
+    let vals = [];
+    if (bars) vals = vals.concat(bars.values);
+    lines.forEach((l) => (vals = vals.concat(l.values)));
+    vals = vals.filter((v) => Number.isFinite(v));
+    if (!days.length || !vals.length) return emptyBlock(cfg.empty || "Not enough data yet.");
+
+    const bounds = vals.slice();
+    if (cfg.band) bounds.push(cfg.band.min, cfg.band.max);
+    refs.forEach((r) => bounds.push(r.value));
+    const h = cfg.height || 160;
+    const padL = 36,
+      padR = 12,
+      padT = 10,
+      padB = 18;
+    const plotW = CHART_W - padL - padR;
+    const plotH = h - padT - padB;
+    let lo = Math.min(...bounds),
+      hi = Math.max(...bounds);
+    if (hi === lo) {
+      hi += 1;
+      lo -= 1;
+    }
+    const padY = (hi - lo) * 0.12;
+    hi += padY;
+    lo = cfg.zero ? 0 : lo - padY;
+    const step = niceStep(hi - lo, 3);
+    lo = cfg.zero ? 0 : Math.floor(lo / step) * step;
+    hi = Math.ceil(hi / step) * step;
+    const Y = (v) => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+    const slot = plotW / days.length;
+    const X = (i) => padL + slot * (i + 0.5);
+    const baseline = padT + plotH;
+
+    let grid = "";
+    for (let v = lo; v <= hi + step / 1000; v += step) {
+      const y = Y(v).toFixed(1);
+      grid += `<line x1="${padL}" x2="${CHART_W - padR}" y1="${y}" y2="${y}" style="stroke:var(--ch-grid);stroke-width:1"/><text x="${padL - 6}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font-size:9px;font-weight:800">${fmt(v)}</text>`;
+    }
+    let bandEl = "";
+    if (cfg.band) {
+      const yTop = Y(cfg.band.max),
+        yBot = Y(cfg.band.min);
+      bandEl = `<rect x="${padL}" y="${yTop.toFixed(1)}" width="${plotW}" height="${Math.max(1, yBot - yTop).toFixed(1)}" style="fill:var(--ch-band)"/>`;
+    }
+    const refEls = refs
+      .map(
+        (r) =>
+          `<line x1="${padL}" x2="${CHART_W - padR}" y1="${Y(r.value).toFixed(1)}" y2="${Y(r.value).toFixed(1)}" style="stroke:var(--muted);stroke-width:1.5;stroke-dasharray:${r.dash || "5 4"}"/>`,
+      )
+      .join("");
+
+    const series = [];
+    let barEls = "";
+    if (bars) {
+      const barW = Math.max(2, Math.min(slot - 2, 22));
+      barEls = bars.values
+        .map((v, i) =>
+          Number.isFinite(v)
+            ? `<rect x="${(X(i) - barW / 2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1, baseline - Y(v)).toFixed(1)}" rx="${Math.min(3, barW / 2).toFixed(1)}" style="fill:${bars.color}"/>`
+            : "",
+        )
+        .join("");
+      series.push(bars);
+    }
+    const lineEls = lines
+      .map((l) => {
+        let d = "",
+          pen = false;
+        l.values.forEach((v, i) => {
+          if (!Number.isFinite(v)) {
+            pen = false;
+            return;
+          }
+          d += `${pen ? "L" : "M"}${X(i).toFixed(1)} ${Y(v).toFixed(1)} `;
+          pen = true;
+        });
+        const dots = l.dots
+          ? l.values
+              .map((v, i) => (Number.isFinite(v) ? `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="2.4" style="fill:${l.color}"/>` : ""))
+              .join("")
+          : "";
+        const path = d
+          ? `<path d="${d.trim()}" fill="none" style="stroke:${l.color};stroke-width:${l.width || 2};stroke-linecap:round;stroke-linejoin:round${l.dash ? ";stroke-dasharray:" + l.dash : ""}"/>`
+          : "";
+        series.push(l);
+        return path + dots;
+      })
+      .join("");
+
+    const tickIdx = [...new Set([0, Math.floor((days.length - 1) / 2), days.length - 1])].filter((i) => i >= 0);
+    const xLabels = tickIdx
+      .map((i, n) => {
+        const anchor = n === 0 ? "start" : n === tickIdx.length - 1 ? "end" : "middle";
+        const x = n === 0 ? padL : n === tickIdx.length - 1 ? CHART_W - padR : X(i);
+        return `<text x="${x.toFixed(1)}" y="${h - 5}" text-anchor="${anchor}" style="fill:var(--muted);font-size:9px;font-weight:800">${esc(fmtDayShort(days[i]))}</text>`;
+      })
+      .join("");
+
+    const points = days.map((date, i) => {
+      const marks = [];
+      const parts = [];
+      series.forEach((s) => {
+        const v = s.values[i];
+        if (Number.isFinite(v)) {
+          marks.push({ x: X(i), y: Y(v), color: s.color });
+          parts.push(`${s.label} ${fmt(v)}${cfg.unit ? " " + cfg.unit : ""}`);
+        } else marks.push(null);
+      });
+      return { x: X(i), text: `${fmtDay(date)}${parts.length ? " · " + parts.join(" · ") : " · nothing logged"}`, marks };
+    });
+    const lastWithData = points.map((p, i) => (p.marks.some(Boolean) ? i : -1)).filter((i) => i >= 0).pop();
+    const id = "c" + ++chartSeq;
+    chartSpecs[id] = {
+      padL,
+      slot,
+      w: CHART_W,
+      points,
+      defaultText: lastWithData >= 0 ? points[lastWithData].text : "No data in this range",
+    };
+
+    const markEls = series
+      .map((s) => `<circle data-mark r="3.6" opacity="0" style="fill:${s.color};stroke:var(--surface);stroke-width:2"/>`)
+      .join("");
+    const legend = series
+      .map((s) => `<span><i class="swatch ${s === bars ? "" : "line"}" style="background:${s.color}"></i>${esc(s.label)}</span>`)
+      .concat(cfg.band ? [`<span><i class="swatch" style="background:var(--ch-band)"></i>${esc(cfg.band.label)}</span>`] : [])
+      .concat(refs.map((r) => `<span style="color:var(--muted)"><i class="swatch dash"></i><span>${esc(r.label)}</span></span>`))
+      .join("");
+
+    return `<div class="chartReadout" data-readout="${id}"></div><svg class="chart" data-chart="${id}" viewBox="0 0 ${CHART_W} ${h}" role="img" aria-label="${esc(cfg.aria || "Chart")}">${grid}${bandEl}${refEls}${barEls}${lineEls}<line data-cross y1="${padT}" y2="${baseline}" opacity="0" style="stroke:var(--muted);stroke-width:1"/>${markEls}${xLabels}</svg><div class="legend">${legend}</div>`;
+  }
+  function mountCharts() {
+    const specs = chartSpecs;
+    chartSpecs = {};
+    Object.keys(specs).forEach((id) => {
+      const svg = stage.querySelector(`[data-chart="${id}"]`);
+      if (!svg) return;
+      const spec = specs[id];
+      const readout = stage.querySelector(`[data-readout="${id}"]`);
+      const cross = svg.querySelector("[data-cross]");
+      const marks = Array.from(svg.querySelectorAll("[data-mark]"));
+      const reset = () => {
+        if (cross) cross.setAttribute("opacity", "0");
+        marks.forEach((m) => m.setAttribute("opacity", "0"));
+        if (readout) readout.textContent = spec.defaultText;
+      };
+      const show = (i) => {
+        const p = spec.points[i];
+        if (!p) return;
+        if (cross) {
+          cross.setAttribute("x1", p.x.toFixed(1));
+          cross.setAttribute("x2", p.x.toFixed(1));
+          cross.setAttribute("opacity", "1");
+        }
+        marks.forEach((m, s) => {
+          const mk = p.marks[s];
+          if (!mk) return m.setAttribute("opacity", "0");
+          m.setAttribute("cx", mk.x.toFixed(1));
+          m.setAttribute("cy", mk.y.toFixed(1));
+          m.setAttribute("opacity", "1");
+        });
+        if (readout) readout.textContent = p.text;
+      };
+      const at = (clientX) => {
+        const r = svg.getBoundingClientRect();
+        if (!r.width) return 0;
+        const px = ((clientX - r.left) / r.width) * spec.w;
+        return Math.max(0, Math.min(spec.points.length - 1, Math.floor((px - spec.padL) / spec.slot)));
+      };
+      svg.addEventListener("pointerdown", (e) => show(at(e.clientX)));
+      svg.addEventListener("pointermove", (e) => {
+        if (e.pointerType === "mouse" || e.buttons) show(at(e.clientX));
+      });
+      svg.addEventListener("pointerleave", reset);
+      svg.addEventListener("pointercancel", reset);
+      reset();
+    });
+  }
+  // Rolling mean of the trailing `win` days, needs `minPts` real values to show.
+  function rollingMean(values, win, minPts) {
+    return values.map((_, i) => {
+      let sum = 0,
+        n = 0;
+      for (let j = Math.max(0, i - win + 1); j <= i; j++) {
+        if (Number.isFinite(values[j])) {
+          sum += values[j];
+          n++;
+        }
+      }
+      return n >= (minPts || 1) ? sum / n : null;
+    });
+  }
+  function dayRange(fromKeys, maxDays) {
+    const keys = fromKeys.filter(Boolean).sort();
+    if (!keys.length) return [];
+    const end = dayKey();
+    const span = Math.min(maxDays, Math.max(1, daysBetween(keys[0], end) + 1));
+    const start = addDays(end, -(span - 1));
+    const out = [];
+    for (let d = start; daysBetween(d, end) >= 0; d = addDays(d, 1)) out.push(d);
+    return out;
+  }
+
+  // --- Day-by-day activity (weight / food / lifts / cardio) ---------------
+  const PLAN_LIFT_DAYS = [1, 3, 5]; // Mon / Wed / Fri per the plan
+  const PLAN_CARDIO_DAYS = [2, 4]; // Tue / Thu
+  // Estimated maintenance, used as the calorie chart's baseline: roughly
+  // 13 kcal per lb of bodyweight for this training load, tracking the latest
+  // weigh-in so the line moves as bodyweight does.
+  const BASELINE_CAL_PER_LB = 13;
+  function latestWeight() {
+    const w = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+    return w && Number.isFinite(Number(w.weight)) ? Number(w.weight) : null;
+  }
+  function baselineCalories() {
+    const w = latestWeight();
+    return w ? Math.round((w * BASELINE_CAL_PER_LB) / 10) * 10 : null;
+  }
+  function workoutLetter(log) {
+    const m = /workout\s+([abc])/i.exec(log.name || "");
+    return m ? m[1].toUpperCase() : "•";
+  }
+  function dayFacts() {
+    const map = {};
+    const get = (d) => (map[d] || (map[d] = { lifts: [], cardio: 0, cardioMin: 0, calories: 0, food: false, weight: null }));
+    db.workoutLogs.forEach((l) => get(dayKeyFromTs(Date.parse(l.date))).lifts.push(workoutLetter(l)));
+    db.cardioLogs.forEach((c) => {
+      const f = get(c.date || dayKeyFromTs(c.ts));
+      f.cardio++;
+      f.cardioMin += c.duration || 0;
+    });
+    db.foodLogs.forEach((x) => {
+      const f = get(x.date);
+      f.calories += x.calories || 0;
+      f.food = true;
+    });
+    db.weightLogs.forEach((w) => (get(w.date).weight = w.weight));
+    Object.values(map).forEach((f) => (f.over = f.food && f.calories > targets.calories.max));
+    return map;
+  }
+
+  // --- Activity calendar --------------------------------------------------
+  let calMonth = null; // "YYYY-MM", lazily set to the month being viewed
+  function shiftMonth(key, delta) {
+    const [y, m] = key.split("-").map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+  }
+  function renderCalendarCard() {
+    if (!calMonth) calMonth = dayKey().slice(0, 7);
+    const facts = dayFacts();
+    const [y, m] = calMonth.split("-").map(Number);
+    const first = new Date(y, m - 1, 1);
+    const total = new Date(y, m, 0).getDate();
+    const today = dayKey();
+    const dows = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    const head = dows.map((d) => `<div class="calDow">${d}</div>`).join("");
+    const blanks = Array.from({ length: first.getDay() }, () => `<div class="calCell blank"></div>`).join("");
+    const tally = { lifts: 0, cardio: 0, over: 0, weighed: 0, elapsed: 0 };
+    const cells = Array.from({ length: total }, (_, i) => {
+      const d = i + 1;
+      const key = `${calMonth}-${pad2(d)}`;
+      const f = facts[key] || {};
+      const wd = new Date(y, m - 1, d).getDay();
+      const past = daysBetween(key, today) > 0;
+      const lifts = f.lifts || [];
+      const planned = PLAN_LIFT_DAYS.includes(wd) ? "lift" : PLAN_CARDIO_DAYS.includes(wd) ? "cardio" : null;
+      const missed = past && ((planned === "lift" && !lifts.length) || (planned === "cardio" && !f.cardio));
+      if (past || key === today) {
+        tally.elapsed++;
+        tally.lifts += lifts.length;
+        tally.cardio += f.cardio || 0;
+        if (f.over) tally.over++;
+        if (f.weight != null) tally.weighed++;
+      }
+      const cls = ["calCell"];
+      if (f.over) cls.push("over");
+      if (missed) cls.push("missed");
+      if (key === today) cls.push("today");
+      const dots =
+        (f.cardio ? `<i class="calDot" style="background:var(--ch-3)"></i>` : "") +
+        (f.over ? `<i class="calDot" style="background:var(--ch-bad)"></i>` : "") +
+        (f.weight != null ? `<i class="calDot" style="background:var(--muted)"></i>` : "");
+      const notes = [];
+      if (lifts.length) notes.push(`Workout ${lifts.join(" + ")}`);
+      if (f.cardio) notes.push(`${fmtMinutes(f.cardioMin)} cardio`);
+      if (f.food) notes.push(`${num(f.calories)} cal`);
+      if (f.weight != null) notes.push(`${Number(f.weight).toFixed(1)} lb`);
+      if (missed) notes.push(`missed planned ${planned}`);
+      return `<div class="${cls.join(" ")}" title="${esc(fmtDay(key) + (notes.length ? " — " + notes.join(", ") : ""))}"><span class="calNum">${d}</span>${lifts.length ? `<span class="calLift">${esc(lifts.join(""))}</span>` : ""}<span class="calDots">${dots}</span></div>`;
+    }).join("");
+    const legend = [
+      `<span><i class="swatch" style="background:var(--ch-1)"></i>Lift (A/B/C)</span>`,
+      `<span><i class="swatch dot" style="background:var(--ch-3)"></i>Cardio</span>`,
+      `<span><i class="swatch dot" style="background:var(--ch-bad)"></i>Over ${targets.calories.max} cal</span>`,
+      `<span><i class="swatch dot" style="background:var(--muted)"></i>Weighed in</span>`,
+      `<span><i class="swatch" style="background:transparent;border:1px dashed var(--ch-bad)"></i>Planned session missed</span>`,
+    ].join("");
+    const summary = tally.elapsed
+      ? `${tally.lifts} lift${tally.lifts === 1 ? "" : "s"} · ${tally.cardio} cardio · ${tally.over} day${tally.over === 1 ? "" : "s"} over · weighed in ${tally.weighed}/${tally.elapsed} days`
+      : "Nothing logged this month yet.";
+    return `<div class="card"><div class="calNav"><button type="button" data-cal="-1" aria-label="Previous month">‹</button><div class="calMonth">${esc(first.toLocaleDateString("en-US", { month: "long", year: "numeric" }))}</div><button type="button" data-cal="1" aria-label="Next month">›</button></div><div class="calGrid">${head}${blanks}${cells}</div><div class="calSummary">${esc(summary)}</div><div class="legend">${legend}</div></div>`;
+  }
   function stopTimer() {
     if (timer) {
       clearInterval(timer);
@@ -1042,7 +1526,34 @@
       target: x[2],
       rest: x[3],
       type: x[4],
+      equip: x[5],
+      mode: x[6],
     }));
+  }
+  // How a weight was loaded, so "80 lb" is never ambiguous between a machine's
+  // total stack and 80 lb on each side / in each hand.
+  function exMetaFor(x) {
+    if (x && (x.equip || x.mode)) return x;
+    const a = (db.exerciseArchive || []).find((y) => y.id === (x && x.id));
+    return a || { equip: "machine", mode: "total" };
+  }
+  function equipLabel(x) {
+    return EQUIP_LABEL[exMetaFor(x).equip] || "Machine";
+  }
+  function loadLabel(x) {
+    const m = exMetaFor(x);
+    if (x && x.type === "body") return "bodyweight";
+    if (m.equip === "bodyweight") return "bodyweight";
+    if (m.mode !== "perSide") return "total";
+    return m.equip === "dumbbell" ? "per hand" : "per side";
+  }
+  function loadSuffix(x) {
+    const m = exMetaFor(x);
+    if (m.mode !== "perSide") return " lb";
+    return m.equip === "dumbbell" ? " lb/hand" : " lb/side";
+  }
+  function weightText(w, x) {
+    return w === 0 ? "BW" : `${w}${loadSuffix(x)}`;
   }
   function cur() {
     return order[exerciseIndex] || null;
@@ -1150,6 +1661,122 @@
     root.appendChild(el);
     undoTimer = setTimeout(clearUndoToast, 5000);
   }
+  function renderWeightChartCard() {
+    const logged = db.weightLogs.filter((w) => Number.isFinite(Number(w.weight)));
+    if (logged.length < 2)
+      return `<div class="card"><div class="cardHead"><div class="cardTitle">Weight trend</div></div>${emptyBlock("Log weight on two or more days to see the trend.")}</div>`;
+    const days = dayRange(logged.map((w) => w.date), 60);
+    const byDate = {};
+    logged.forEach((w) => (byDate[w.date] = Number(w.weight)));
+    const daily = days.map((d) => (Number.isFinite(byDate[d]) ? byDate[d] : null));
+    const avg = rollingMean(daily, 7, 2);
+    const firstAvg = avg.find((v) => v != null);
+    const lastAvg = avg.slice().reverse().find((v) => v != null);
+    const delta = firstAvg != null && lastAvg != null ? lastAvg - firstAvg : null;
+    const note =
+      delta == null
+        ? `${days.length} days`
+        : `${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)} lb over ${days.length} days`;
+    const chart = timeChart({
+      days,
+      lines: [
+        { label: "Daily", color: "var(--ch-1)", values: daily, width: 1, dots: true },
+        { label: "7-day avg", color: "var(--ch-2)", values: avg, width: 2.5 },
+      ],
+      fmt: (v) => v.toFixed(1),
+      unit: "lb",
+      aria: "Daily bodyweight and 7-day rolling average",
+    });
+    return `<div class="card"><div class="cardHead"><div class="cardTitle">Weight trend</div><div class="cardNote">${esc(note)}</div></div>${chart}</div>`;
+  }
+  function renderCaloriesChartCard() {
+    if (!db.foodLogs.length)
+      return `<div class="card"><div class="cardHead"><div class="cardTitle">Calories</div></div>${emptyBlock("Log some food to see the trend.")}</div>`;
+    const days = dayRange(db.foodLogs.map((x) => x.date), 60);
+    const byDate = {};
+    db.foodLogs.forEach((x) => (byDate[x.date] = (byDate[x.date] || 0) + (x.calories || 0)));
+    const daily = days.map((d) => (byDate[d] != null ? byDate[d] : null));
+    const avg = rollingMean(daily, 7, 3);
+    const base = baselineCalories();
+    const lastAvg = avg.slice().reverse().find((v) => v != null);
+    const note =
+      lastAvg != null
+        ? `7-day avg ${num(lastAvg)}${base ? ` · ~${num(base - lastAvg)} under baseline` : ""}`
+        : `${days.length} days`;
+    const chart = timeChart({
+      days,
+      zero: true,
+      bars: { label: "Daily", color: "var(--ch-1)", values: daily },
+      lines: [{ label: "7-day avg", color: "var(--ch-2)", values: avg, width: 2.5 }],
+      band: { min: targets.calories.min, max: targets.calories.max, label: `Target ${targets.calories.min}–${targets.calories.max}` },
+      refs: base ? [{ label: `Baseline ~${num(base)}`, value: base }] : [],
+      unit: "cal",
+      aria: "Daily calories with 7-day rolling average, target range and estimated maintenance",
+    });
+    return `<div class="card"><div class="cardHead"><div class="cardTitle">Calories</div><div class="cardNote">${esc(note)}</div></div>${chart}</div>`;
+  }
+  function weekStart(dateStr) {
+    const d = parseDayKey(dateStr);
+    return addDays(dateStr, -((d.getDay() + 6) % 7)); // back to Monday
+  }
+  function renderWeekCard(facts) {
+    const today = dayKey();
+    const start = weekStart(today);
+    const days = [];
+    for (let i = 0; i < 7; i++) days.push(addDays(start, i));
+    const elapsed = days.filter((d) => daysBetween(d, today) >= 0);
+    const lifts = elapsed.reduce((n, d) => n + ((facts[d] && facts[d].lifts.length) || 0), 0);
+    const cardio = elapsed.reduce((n, d) => n + ((facts[d] && facts[d].cardio) || 0), 0);
+    const calDays = elapsed.filter((d) => facts[d] && facts[d].food);
+    const avgCal = calDays.length ? calDays.reduce((n, d) => n + facts[d].calories, 0) / calDays.length : null;
+    const weighed = elapsed.map((d) => (facts[d] ? facts[d].weight : null)).filter((v) => v != null);
+    const prior = [];
+    for (let i = 1; i <= 7; i++) {
+      const f = facts[addDays(start, -i)];
+      if (f && f.weight != null) prior.push(Number(f.weight));
+    }
+    const mean = (a) => a.reduce((x, y) => x + Number(y), 0) / a.length;
+    const delta = weighed.length && prior.length ? mean(weighed) - mean(prior) : null;
+    const stat = (name, value, tone) =>
+      `<div><div class="chipName">${esc(name)}</div><div class="chipVal"${tone ? ` style="color:${tone}"` : ""}>${value}</div></div>`;
+    return `<div class="label">This week · from ${esc(fmtDay(start, { relative: false }))}</div><div class="macroStrip"><div class="macroChips">${stat(
+      "Lifts",
+      `${lifts}<span style="font-size:10px;color:var(--muted)">/3</span>`,
+    )}${stat("Cardio", `${cardio}<span style="font-size:10px;color:var(--muted)">/2</span>`)}${stat(
+      "Avg cal",
+      avgCal == null ? "—" : num(avgCal),
+    )}${stat(
+      "Weight",
+      delta == null ? "—" : `${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)}`,
+      delta == null ? null : delta <= 0 ? "light-dark(#1e7d32,#4ade80)" : "light-dark(#9a6a00,#e8b339)",
+    )}</div></div>`;
+  }
+  // Today's checklist, straight off the plan: lift Mon/Wed/Fri, incline walk
+  // Tue/Thu, weigh in daily, waist on Sundays, calories inside the target band.
+  function renderTodayCard(facts) {
+    const today = dayKey();
+    const f = facts[today] || {};
+    const wd = effectiveNow().getDay();
+    const plan = { 1: "A", 3: "B", 5: "C" }[wd];
+    const items = [];
+    if (plan) items.push([`Workout ${plan}`, (f.lifts || []).length > 0]);
+    if (PLAN_CARDIO_DAYS.includes(wd)) items.push(["60 min incline walk", (f.cardio || 0) > 0]);
+    if (!plan && !PLAN_CARDIO_DAYS.includes(wd)) items.push(["Rest day — optional walk", (f.cardio || 0) > 0]);
+    items.push(["Weigh in", f.weight != null]);
+    if (wd === WAIST_DAY) items.push(["Waist measurement", db.waistLogs.some((x) => x.date === today)]);
+    items.push([
+      `Calories ${targetLabel("calories")}`,
+      !!f.food && f.calories >= targets.calories.min && f.calories <= targets.calories.max,
+    ]);
+    const rows = items
+      .map(
+        ([label, done]) =>
+          `<div class="todo"><span class="tick${done ? " on" : ""}">${done ? "✓" : ""}</span>${esc(label)}</div>`,
+      )
+      .join("");
+    const weekday = effectiveNow().toLocaleDateString("en-US", { weekday: "long" });
+    return `<div class="label">Today · ${esc(weekday)}</div><div class="macroStrip" style="gap:9px">${rows}</div>`;
+  }
   function showHome() {
     stopTimer();
     if (active()) saveActive();
@@ -1158,6 +1785,7 @@
       lw = db.weightLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
       lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0],
       lc = db.cardioLogs.slice().sort((a, b) => b.ts - a.ts)[0];
+    const facts = dayFacts();
     let resume = "";
     const a = db.activeWorkout;
     if (a && a.workout) {
@@ -1165,8 +1793,22 @@
       if (e)
         resume = `<button id="resume" class="resume" type="button"><div>Resume ${db.templates[a.workout].name}<br><small>${esc(e.name)} · ${a.phase === "rest" ? "Resting" : "Set " + Math.min(a.session.filter((x) => x.id === e.id).length + 1, 2)}</small></div><div>→</div></button>`;
     }
-    const cardioLabel = lc ? (lc.machine === "treadmill" ? (lc.mode === "walk" ? "Walk" : "Run") : "Bike") : "Log";
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)"><button class="day" data-start="A">A<span>Monday</span></button><button class="day" data-start="B">B<span>Wednesday</span></button><button class="day" data-start="C">C<span>Friday</span></button><button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${Math.round(t.calories)} kcal · ${r1(t.protein)}g protein</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"} · ${lwa ? Number(lwa.waist).toFixed(1) + " in" : "No waist"}</span></button></div><button id="history" class="historyOpen" type="button">Workout history · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
+    const cardioLabel = lc
+      ? `${fmtMinutes(lc.duration)} · ${esc(fmtDay(lc.date || dayKeyFromTs(lc.ts), { weekday: false }))}`
+      : "Log";
+    // A/B/C map to Mon/Wed/Fri; today's session gets the underline.
+    const planToday = { 1: "A", 3: "B", 5: "C" }[effectiveNow().getDay()] || null;
+    const dayTile = (k, weekday) =>
+      `<button class="day${planToday === k ? " todayPlan" : ""}" data-start="${k}">${k}<span>${weekday}</span></button>`;
+    const avg7 = (() => {
+      const days = dayRange(db.weightLogs.map((w) => w.date), 14);
+      if (!days.length) return null;
+      const byDate = {};
+      db.weightLogs.forEach((w) => (byDate[w.date] = Number(w.weight)));
+      const vals = rollingMean(days.map((d) => (Number.isFinite(byDate[d]) ? byDate[d] : null)), 7, 2);
+      return vals.slice().reverse().find((v) => v != null) || null;
+    })();
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)">${dayTile("A", "Monday")}${dayTile("B", "Wednesday")}${dayTile("C", "Friday")}<button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${t.approx ? "~" : ""}${num(t.calories)} cal · ${r1(t.protein)}g protein<br>target ${targetLabel("calories")}</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"}${avg7 ? ` · 7-day ${avg7.toFixed(1)}` : ""}<br>${lwa ? Number(lwa.waist).toFixed(1) + " in waist" : "No waist yet"}</span></button></div>${renderTodayCard(facts)}${renderWeekCard(facts)}<button id="history" class="historyOpen" type="button">Workout history &amp; calendar · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
@@ -1411,11 +2053,13 @@
     if (e.type === "upper") return 50;
     return 30;
   }
+  const WEIGHT_STEP = 5; // gyms have 5 lb plates and 5 lb stack steps
   function weightVals(e) {
     if (e.type === "body") return [0];
     const c = defaultWeight(e),
       a = [];
-    for (let w = Math.max(10, c - 100); w <= c + 150; w += 10) a.push(w);
+    const start = Math.max(WEIGHT_STEP, Math.round((c - 40) / WEIGHT_STEP) * WEIGHT_STEP);
+    for (let w = start; w <= c + 80; w += WEIGHT_STEP) a.push(w);
     if (!a.includes(c)) a.push(c);
     return [...new Set(a)].sort((x, y) => x - y);
   }
@@ -1434,7 +2078,7 @@
     weight = w;
     pendingWeight = null;
     reps = e.target;
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="exerciseHead"><div class="exerciseTitle"><div class="exerciseName">${esc(e.name)}</div><div class="exerciseMeta">${exerciseIndex + 1}/${order.length} · SET ${sets(e.id).length + 1}/2</div></div><button id="swap" class="btn" type="button">Swap</button><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div class="picker"><div class="half"><div class="label">Weight · swipe ↔</div><div id="weights" class="rail">${weightVals(e).map((v) => `<button class="choice ${v === w ? "selected" : ""}" data-w="${v}" type="button">${v === 0 ? "BW" : v}</button>`).join("")}</div></div><div class="half"><div class="label">Reps · tap to log · target ${e.target}</div><div id="reps" class="rail">${Array.from({ length: 25 }, (_, i) => i + 1).map((v) => `<button class="choice ${v === e.target ? "target selected" : ""}" data-r="${v}" type="button">${v}</button>`).join("")}</div></div></div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="exerciseHead"><div class="exerciseTitle"><div class="exerciseName">${esc(e.name)}</div><div class="exerciseMeta">${exerciseIndex + 1}/${order.length} · SET ${sets(e.id).length + 1}/2 · ${esc(equipLabel(e))} · ${esc(loadLabel(e))}</div></div><button id="swap" class="btn" type="button">Swap</button><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div class="picker"><div class="half"><div class="label">${e.type === "body" ? "Bodyweight" : `Weight (lb ${esc(loadLabel(e))}) · swipe ↔`}</div><div id="weights" class="rail">${weightVals(e).map((v) => `<button class="choice ${v === w ? "selected" : ""}" data-w="${v}" type="button">${v === 0 ? "BW" : v}</button>`).join("")}</div></div><div class="half"><div class="label">Reps · tap to log · target ${e.target}</div><div id="reps" class="rail">${Array.from({ length: 25 }, (_, i) => i + 1).map((v) => `<button class="choice ${v === e.target ? "target selected" : ""}" data-r="${v}" type="button">${v}</button>`).join("")}</div></div></div></section>`;
     stage.querySelectorAll("[data-w]").forEach((b) =>
       b.addEventListener("click", () => {
         if (phase !== "set") return;
@@ -1464,7 +2108,16 @@
     locked = true;
     const e = cur(),
       previous = db.liftHistory[e.id] ? { ...db.liftHistory[e.id] } : null,
-      entry = { id: e.id, name: e.name, set: sets(e.id).length + 1, weight, reps, previous };
+      entry = {
+        id: e.id,
+        name: e.name,
+        set: sets(e.id).length + 1,
+        weight,
+        reps,
+        equip: e.equip,
+        mode: e.mode,
+        previous,
+      };
     session.push(entry);
     lastLogged = entry;
     db.liftHistory[e.id] = { weight, reps };
@@ -1492,7 +2145,7 @@
         return `<div class="setRow" style="padding:6px 10px;${done >= 2 ? "opacity:0.5" : isCurrent ? "font-weight:700" : ""}"><span>${esc(e.name)}</span><span>${done >= 2 ? "✓" : `${done}/2`}</span></div>`;
       })
       .join("");
-    stage.innerHTML = `<section class="timer"><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;width:100%"><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${lastLogged.weight === 0 ? "BW" : lastLogged.weight + " lb"} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Hold"}</button><button id="skip" type="button">Skip</button></div><div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
+    stage.innerHTML = `<section class="timer"><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;width:100%"><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${esc(weightText(lastLogged.weight, lastLogged))} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Hold"}</button><button id="skip" type="button">Skip</button></div><div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
     stage.querySelector("#back").addEventListener("click", undo);
     stage.querySelector("#pause").addEventListener("click", togglePause);
     stage.querySelector("#skip").addEventListener("click", advance);
@@ -1579,7 +2232,7 @@
         : ""
     }${
       alts.length
-        ? `<div class="note" style="padding:8px 12px 0">Alternative — machine busy/missing</div>${alts.map((a) => `<button class="swapRow" data-alt="${a.id}" type="button">${esc(a.name)}</button>`).join("")}`
+        ? `<div class="note" style="padding:8px 12px 0">Alternative — machine busy/missing</div>${alts.map((a) => `<button class="swapRow" data-alt="${a.id}" type="button">${esc(a.name)}<div class="tagRow"><span class="tag">${esc(equipLabel(a))}</span><span class="tag">${esc(loadLabel(a))}</span></div></button>`).join("")}`
         : ""
     }</div>`;
     stage.querySelector("#swapBack").addEventListener("click", () => {
@@ -1604,7 +2257,7 @@
         if (phase !== "swap") return;
         const a = db.exerciseArchive.find((x) => x.id === b.dataset.alt);
         if (!a) return;
-        order[exerciseIndex] = { id: a.id, name: a.name, target: a.target, rest: a.rest, type: a.type };
+        order[exerciseIndex] = { id: a.id, name: a.name, target: a.target, rest: a.rest, type: a.type, equip: a.equip, mode: a.mode };
         pendingWeight = null;
         phase = "set";
         saveActive();
@@ -1631,7 +2284,7 @@
         name: db.templates[workout].name,
         date: new Date(ended).toISOString(),
         duration: Math.max(1, Math.round((ended - startedAt) / 60000)),
-        sets: session.map((x) => ({ id: x.id, name: x.name, set: x.set, weight: x.weight, reps: x.reps })),
+        sets: session.map((x) => ({ id: x.id, name: x.name, set: x.set, weight: x.weight, reps: x.reps, equip: x.equip, mode: x.mode })),
       };
     db.workoutLogs.push(log);
     clearActive();
@@ -1661,6 +2314,26 @@
   function macroLine(x) {
     return `${x.approx ? "~" : ""}${x.calories} cal · ${r1(x.protein)}g P · ${r1(x.carbs)}g C · ${r1(x.fat)}g F · ${Math.round(x.sodium || 0)}mg Na · ${r1(x.fiber)}g fiber`;
   }
+  // Compact calories + macro readout. Deliberately short so the food list
+  // below it gets most of the screen.
+  function renderMacroStrip(t) {
+    const statusColor = (cls) =>
+      cls === "good"
+        ? "light-dark(#1e7d32,#4ade80)"
+        : cls === "warn"
+          ? "light-dark(#9a6a00,#e8b339)"
+          : "light-dark(#b3261e,#ff6b5e)";
+    const chip = (name, value, key) => {
+      const target = targets[key] || {};
+      const goal = target.min !== undefined ? target.min : target.max;
+      const cls = metricStatus(value, key).trim();
+      const pct = goal ? Math.max(0, Math.min(100, (value / goal) * 100)) : 0;
+      return `<div><div class="chipName">${esc(name)}</div><div class="chipVal">${r1(value)}<span style="font-size:10px;font-weight:850;color:var(--muted)">/${goal}</span></div><div class="chipBar" style="color:${statusColor(cls)}"><div class="chipFill" style="width:${pct.toFixed(0)}%"></div></div></div>`;
+    };
+    const base = baselineCalories();
+    const gap = base ? base - t.calories : null;
+    return `<div class="macroStrip"><div class="macroTop"><div><div class="macroCal ${metricStatus(t.calories, "calories").trim()}">${t.approx ? "~" : ""}${num(t.calories)}<span style="font-size:12px;font-weight:850;color:var(--muted)"> cal</span></div><div class="chipName" style="margin-top:4px">Today · target ${targetLabel("calories")}</div></div><div class="macroSub">${base ? `baseline ~${num(base)}<br>${gap >= 0 ? num(gap) + " under" : num(-gap) + " over"}` : ""}</div></div><div class="macroChips">${chip("Protein", t.protein, "protein")}${chip("Carbs", t.carbs, "carbs")}${chip("Fat", t.fat, "fat")}${chip("Fiber", t.fiber, "fiber")}</div></div>`;
+  }
   function showFood(tab = "meals") {
     stopTimer();
     if (active()) saveActive();
@@ -1669,7 +2342,7 @@
       t = foodTotals(d);
     const library =
       tab === "meals" ? renderFoodList(meals) : tab === "snacks" ? renderFoodList(snacks) : renderFoodList(drinks);
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div><div class="metrics"><div class="metric"><div class="metricName">Calories</div><div class="metricVal${metricStatus(t.calories, "calories")}">${t.approx ? "~" : ""}${Math.round(t.calories)}</div><div>${targetLabel("calories")}${t.approx ? " · incl. estimate" : ""}</div></div><div class="metric"><div class="metricName">Protein</div><div class="metricVal${metricStatus(t.protein, "protein")}">${r1(t.protein)}g</div><div>${targetLabel("protein")}</div></div><div class="metric"><div class="metricName">Carbs</div><div class="metricVal${metricStatus(t.carbs, "carbs")}">${r1(t.carbs)}g</div><div>${targetLabel("carbs")}</div></div><div class="metric"><div class="metricName">Fat</div><div class="metricVal${metricStatus(t.fat, "fat")}">${r1(t.fat)}g</div><div>${targetLabel("fat")}</div></div><div class="metric"><div class="metricName">Fiber</div><div class="metricVal${metricStatus(t.fiber, "fiber")}">${r1(t.fiber)}g</div><div>${targetLabel("fiber")}</div></div></div><div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button id="openFoodHistory" type="button">History</button></div><div class="library">${library}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Food</div><button id="foodBack" class="btn" type="button">Back</button></div>${renderMacroStrip(t)}<div class="tabs"><button data-tab="meals" class="${tab === "meals" ? "active" : ""}" type="button">Meals</button><button data-tab="snacks" class="${tab === "snacks" ? "active" : ""}" type="button">Snacks</button><button data-tab="drinks" class="${tab === "drinks" ? "active" : ""}" type="button">Drinks</button><button id="openFoodHistory" type="button">History</button></div><div class="library">${library}</div></section>`;
     stage.querySelector("#foodBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showFood(b.dataset.tab)));
     stage.querySelectorAll("[data-add-food]").forEach((b) => b.addEventListener("click", () => addFoodItem(b.dataset.addFood)));
@@ -1681,7 +2354,7 @@
     if (active()) saveActive();
     phase = "foodHistory";
     const d = dayKey();
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><div style="display:flex;gap:8px"><button id="openAdHocFood" class="btn" type="button">+ Add</button><button id="foodHistoryBack" class="btn" type="button">Back</button></div></div><div class="library">${renderToday(d)}</div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><div style="display:flex;gap:8px"><button id="openAdHocFood" class="btn" type="button">+ Add</button><button id="foodHistoryBack" class="btn" type="button">Back</button></div></div><div class="library">${renderCaloriesChartCard()}${renderToday(d)}</div></section>`;
     stage.querySelector("#foodHistoryBack").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#openAdHocFood").addEventListener("click", showAdHocFood);
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
@@ -1703,6 +2376,7 @@
     stage.querySelectorAll("[data-view-food]").forEach((el) =>
       el.addEventListener("click", () => showFoodDetail(el.dataset.viewFood)),
     );
+    mountCharts();
     armBackgroundTimer();
   }
   function showAdHocFood() {
@@ -1712,7 +2386,7 @@
     const today = dayKey();
     stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Add Food</div><button id="adHocBack" class="btn" type="button">Back</button></div><div class="library"><form id="adHocForm" class="form" style="display:flex;flex-direction:column;gap:8px">
       <input id="adHocName" type="text" placeholder="Name" required>
-      <input id="adHocDate" type="date" value="${today}" max="${today}" required>
+      <label style="display:flex;flex-direction:column;gap:4px"><span class="chipName">Date</span><input id="adHocDate" type="date" value="${today}" max="${today}" required></label>
       <input id="adHocCalories" type="number" inputmode="decimal" placeholder="Calories" required>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="adHocApprox" type="checkbox" style="width:auto;min-height:auto" checked>Estimate (eating out / not exact)</label>
       <details><summary>+ Protein, carbs, fat, sodium, fiber</summary>
@@ -1836,18 +2510,14 @@
       { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0, fiber: 0 },
     );
   }
-  function formatDayLabel(dateStr) {
-    const dt = new Date(dateStr + "T00:00:00");
-    return dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  }
   function renderToday(d) {
-    if (!db.foodLogs.length) return `<div class="logRow"><div class="foodName">Nothing logged yet.</div></div>`;
+    if (!db.foodLogs.length) return `<div class="empty">Nothing logged yet.</div>`;
     const byDate = {};
     db.foodLogs.forEach((x) => {
       (byDate[x.date] || (byDate[x.date] = [])).push(x);
     });
     const dates = Object.keys(byDate).sort().reverse();
-    const head = `<div class="foodTableHead"><span>Day</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span>Na</span><span>Fi</span><span></span></div>`;
+    const head = `<div class="foodTableHead"><span>Day</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span>Fib</span><span></span></div>`;
     const body = dates
       .map((date) => {
         const items = byDate[date];
@@ -1870,14 +2540,14 @@
           .reverse()
           .map((x) => renderFoodRow(x))
           .join("");
-        const label = `${formatDayLabel(date)}${isToday ? " · today" : ""}${totals.approx ? " · ~estimate" : ""}`;
-        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${totals.approx ? "~" : ""}${Math.round(totals.calories)}</span><span>${Math.round(totals.protein)}</span><span>${Math.round(totals.carbs)}</span><span>${Math.round(totals.fat)}</span><span>${Math.round(totals.sodium)}</span><span>${Math.round(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
+        const label = `${fmtDay(date)}${totals.approx ? " · ~est" : ""}`;
+        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${totals.approx ? "~" : ""}${Math.round(totals.calories)}</span><span>${Math.round(totals.protein)}</span><span>${Math.round(totals.carbs)}</span><span>${Math.round(totals.fat)}</span><span>${Math.round(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
       })
       .join("");
     return `${head}<div class="foodDayList">${body}</div>`;
   }
   function renderFoodRow(x) {
-    return `<div class="foodItemRow" data-view-food="${x.id}"><div class="foodTableRow"><span><span class="cellName">${x.approx ? "~" : ""}${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</span></span><span>${Math.round(x.calories)}</span><span>${Math.round(x.protein || 0)}</span><span>${Math.round(x.carbs || 0)}</span><span>${Math.round(x.fat || 0)}</span><span>${Math.round(x.sodium || 0)}</span><span>${Math.round(x.fiber || 0)}</span><span><button class="foodDeleteBtn" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></span></div></div>`;
+    return `<div class="foodItemRow" data-view-food="${x.id}"><div class="foodTableRow"><span><span class="cellName">${x.approx ? "~" : ""}${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</span></span><span>${Math.round(x.calories)}</span><span>${Math.round(x.protein || 0)}</span><span>${Math.round(x.carbs || 0)}</span><span>${Math.round(x.fat || 0)}</span><span>${Math.round(x.fiber || 0)}</span><span><button class="foodDeleteBtn" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></span></div></div>`;
   }
   function showFoodDetail(id) {
     stopTimer();
@@ -2000,8 +2670,8 @@
       lwa = db.waistLogs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
     const waistBlock = isWaistDay
       ? `<form id="waistForm" class="form"><strong>Weekly waist</strong><input id="waistInput" type="number" inputmode="decimal" min="20" max="80" step="0.1" value="${db.waistLogs.find((x) => x.date === d) ? db.waistLogs.find((x) => x.date === d).waist : ""}" placeholder="Waist at navel (in)" required><button class="submit" type="submit">Save</button></form>`
-      : `<div class="form"><strong>Weekly waist</strong><div class="note" style="margin-top:8px">Logged ${WAIST_DAY_NAMES[WAIST_DAY]}s. ${lwa ? `Last: ${Number(lwa.waist).toFixed(1)} in on ${esc(lwa.date)}.` : "Not logged yet."}</div></div>`;
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Body</div><button id="bodyBack" class="btn" type="button">Back</button></div><div class="metrics" style="grid-template-columns:1fr 1fr"><div class="metric"><div class="metricName">Latest weight</div><div class="metricVal">${lw ? Number(lw.weight).toFixed(1) : "—"}</div><div>lb</div></div><div class="metric"><div class="metricName">Latest waist</div><div class="metricVal">${lwa ? Number(lwa.waist).toFixed(1) : "—"}</div><div>in</div></div></div><div class="bodyForms"><form id="weightForm" class="form"><strong>Daily weight</strong><input id="weightInput" type="number" inputmode="decimal" min="100" max="400" step="0.1" value="${tw ? tw.weight : ""}" placeholder="Weight (lb)" required><button class="submit" type="submit">Save</button></form>${waistBlock}</div><div class="list">${renderBody()}</div></section>`;
+      : `<div class="form"><strong>Weekly waist</strong><div class="note" style="margin-top:8px">Logged ${WAIST_DAY_NAMES[WAIST_DAY]}s. ${lwa ? `Last: ${Number(lwa.waist).toFixed(1)} in on ${esc(fmtDay(lwa.date))}.` : "Not logged yet."}</div></div>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Body</div><button id="bodyBack" class="btn" type="button">Back</button></div><div class="metrics" style="grid-template-columns:1fr 1fr"><div class="metric"><div class="metricName">Latest weight</div><div class="metricVal">${lw ? Number(lw.weight).toFixed(1) : "—"}</div><div>lb</div></div><div class="metric"><div class="metricName">Latest waist</div><div class="metricVal">${lwa ? Number(lwa.waist).toFixed(1) : "—"}</div><div>in</div></div></div><div class="bodyForms"><form id="weightForm" class="form"><strong>Daily weight</strong><input id="weightInput" type="number" inputmode="decimal" min="100" max="400" step="0.1" value="${tw ? tw.weight : ""}" placeholder="Weight (lb)" required><button class="submit" type="submit">Save</button></form>${waistBlock}</div><div class="list">${renderWeightChartCard()}${renderBody()}</div></section>`;
     stage.querySelector("#bodyBack").addEventListener("click", showHome);
     stage.querySelector("#weightForm").addEventListener("submit", (e) => {
       e.preventDefault();
@@ -2034,13 +2704,14 @@
         const [removed] = arr.splice(idx, 1);
         saveDB();
         showBody();
-        showUndoToast(`Deleted ${kind} · ${date}`, () => {
+        showUndoToast(`Deleted ${kind} · ${fmtDay(date)}`, () => {
           arr.splice(idx, 0, removed);
           saveDB();
           if (phase === "body") showBody();
         });
       }),
     );
+    mountCharts();
     armBackgroundTimer();
   }
   function renderBody() {
@@ -2048,11 +2719,11 @@
       ...db.weightLogs.map((x) => ({ kind: "weight", date: x.date, text: `${Number(x.weight).toFixed(1)} lb` })),
       ...db.waistLogs.map((x) => ({ kind: "waist", date: x.date, text: `${Number(x.waist).toFixed(1)} in (waist)` })),
     ].sort((a, b) => b.date.localeCompare(a.date) || (a.kind === b.kind ? 0 : a.kind === "weight" ? -1 : 1));
-    if (!items.length) return `<div class="bodyRow">No measurements yet.</div>`;
+    if (!items.length) return `<div class="empty">No measurements yet.</div>`;
     return items
       .map(
         (it) =>
-          `<div class="bodyRow"><strong>${esc(it.date)}</strong><span style="display:flex;align-items:center;gap:10px">${it.text}<button class="delete" data-delete-body="${it.kind}|${esc(it.date)}" type="button" aria-label="Delete">×</button></span></div>`,
+          `<div class="bodyRow"><strong>${esc(fmtDay(it.date))}</strong><span style="display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums">${it.text}<button class="delete" data-delete-body="${it.kind}|${esc(it.date)}" type="button" aria-label="Delete ${esc(it.kind)} from ${esc(fmtDay(it.date))}">×</button></span></div>`,
       )
       .join("");
   }
@@ -2061,10 +2732,12 @@
     const kg = lw && Number.isFinite(Number(lw.weight)) ? Number(lw.weight) * 0.453592 : 79.4;
     let met;
     if (c.machine === "treadmill") {
-      const speed = c.speed || (c.mode === "walk" ? 3 : 5.5);
+      const speed = c.speed || 3;
       const grade = (c.incline || 0) / 100;
       const speedMmin = speed * 26.8224;
-      const isWalk = c.mode === "walk" || speed < 4;
+      // ACSM walking vs running equations — which one applies follows from the
+      // speed itself, so there is nothing to pick when logging.
+      const isWalk = speed < 4.5;
       const vo2 = isWalk ? 0.1 * speedMmin + 1.8 * speedMmin * grade + 3.5 : 0.2 * speedMmin + 0.9 * speedMmin * grade + 3.5;
       met = vo2 / 3.5;
     } else {
@@ -2078,12 +2751,12 @@
     if (c.machine === "treadmill") {
       if (c.speed) parts.push(`${c.speed} mph`);
       if (c.incline) parts.push(`${c.incline}% incline`);
-      parts.push(`~${estimateCardioCalories(c)} cal`);
-      return `${c.mode === "walk" ? "Walk" : "Run"} · ${parts.join(" · ")}`;
+      parts.push(`~${num(estimateCardioCalories(c))} cal`);
+      return `Treadmill · ${parts.join(" · ")}`;
     }
     if (c.resistance) parts.push(`resistance ${c.resistance}`);
     if (c.distance) parts.push(`${c.distance} mi`);
-    parts.push(`~${estimateCardioCalories(c)} cal`);
+    parts.push(`~${num(estimateCardioCalories(c))} cal`);
     return `Bike · ${parts.join(" · ")}`;
   }
   function showCardio() {
@@ -2092,7 +2765,7 @@
     phase = "cardio";
     const isTread = cardioMachine === "treadmill";
     const fields = isTread
-      ? `<div class="tabs" style="grid-template-columns:repeat(2,1fr)"><button type="button" data-mode="walk" class="${cardioMode === "walk" ? "active" : ""}">Walk</button><button type="button" data-mode="run" class="${cardioMode === "run" ? "active" : ""}">Run</button></div><input id="cardioDuration" type="number" inputmode="decimal" min="1" max="300" placeholder="Duration (min)" required><input id="cardioSpeed" type="number" inputmode="decimal" step="0.1" min="0" max="15" placeholder="Speed (mph)"><input id="cardioIncline" type="number" inputmode="decimal" step="0.5" min="0" max="20" placeholder="Incline (%)">`
+      ? `<input id="cardioDuration" type="number" inputmode="decimal" min="1" max="300" placeholder="Duration (min)" required><input id="cardioSpeed" type="number" inputmode="decimal" step="0.1" min="0" max="15" placeholder="Speed (mph)"><input id="cardioIncline" type="number" inputmode="decimal" step="0.5" min="0" max="20" placeholder="Incline (%)">`
       : `<input id="cardioDuration" type="number" inputmode="decimal" min="1" max="300" placeholder="Duration (min)" required><input id="cardioResistance" type="number" inputmode="decimal" min="1" max="30" placeholder="Resistance level"><input id="cardioDistance" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Distance (mi, optional)">`;
     stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Cardio</div><button id="cardioBack" class="btn" type="button">Back</button></div><div class="tabs" style="grid-template-columns:repeat(2,1fr)"><button data-machine="treadmill" class="${isTread ? "active" : ""}" type="button">Treadmill</button><button data-machine="bike" class="${!isTread ? "active" : ""}" type="button">Bike</button></div><form id="cardioForm" class="form" style="display:flex;flex-direction:column;gap:8px">${fields}<button class="submit" type="submit">Save</button></form><div class="list">${renderCardioList()}</div></section>`;
     stage.querySelector("#cardioBack").addEventListener("click", showHome);
@@ -2102,14 +2775,6 @@
         showCardio();
       }),
     );
-    if (isTread) {
-      stage.querySelectorAll("[data-mode]").forEach((b) =>
-        b.addEventListener("click", () => {
-          cardioMode = b.dataset.mode;
-          showCardio();
-        }),
-      );
-    }
     stage.querySelector("#cardioForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const duration = Number(stage.querySelector("#cardioDuration").value);
@@ -2122,7 +2787,6 @@
         duration,
       };
       if (isTread) {
-        entry.mode = cardioMode;
         const speed = Number(stage.querySelector("#cardioSpeed").value);
         const incline = Number(stage.querySelector("#cardioIncline").value);
         if (Number.isFinite(speed) && speed > 0) entry.speed = speed;
@@ -2156,11 +2820,11 @@
   }
   function renderCardioList() {
     const rows = db.cardioLogs.slice().sort((a, b) => b.ts - a.ts);
-    if (!rows.length) return `<div class="setRow">No cardio yet.</div>`;
+    if (!rows.length) return `<div class="empty">No cardio yet.</div>`;
     return rows
       .map(
         (c) =>
-          `<div class="setRow"><div><strong>${esc(c.date)}</strong><div>${esc(formatCardioLine(c))}</div></div><button class="delete" data-delete-cardio="${c.id}" type="button" aria-label="Delete">×</button></div>`,
+          `<div class="setRow"><div><strong>${esc(fmtDay(c.date || dayKeyFromTs(c.ts)))}</strong><div style="font-size:12px;font-weight:800;color:var(--muted)">${esc(formatCardioLine(c))}</div></div><button class="delete" data-delete-cardio="${c.id}" type="button" aria-label="Delete cardio">×</button></div>`,
       )
       .join("");
   }
@@ -2168,8 +2832,23 @@
     stopTimer();
     if (active()) saveActive();
     phase = "history";
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${db.workoutLogs.length ? db.workoutLogs.slice().reverse().map((l) => `<div class="setRow" data-view-workout="${l.id}" style="cursor:pointer"><div><strong>${esc(l.name)}</strong><div>${new Date(l.date).toLocaleDateString()}</div></div><div style="display:flex;align-items:center;gap:10px"><span>${l.sets.length} sets</span><button class="delete" data-delete-workout="${l.id}" type="button" aria-label="Delete">×</button></div></div>`).join("") : `<div class="setRow">No workouts yet.</div>`}</div></section>`;
+    const logs = db.workoutLogs.slice().sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+    const rows = logs.length
+      ? logs
+          .map(
+            (l) =>
+              `<div class="setRow" data-view-workout="${l.id}" style="cursor:pointer"><div><strong>${esc(l.name)}</strong><div style="font-size:12px;font-weight:800;color:var(--muted)">${esc(fmtDayTime(l.date))} · ${esc(fmtMinutes(l.duration))}</div></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:850">${l.sets.length} sets</span><button class="delete" data-delete-workout="${l.id}" type="button" aria-label="Delete ${esc(l.name)}">×</button></div></div>`,
+          )
+          .join("")
+      : `<div class="empty">No workouts yet.</div>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><button id="historyBack" class="btn" type="button">Back</button></div><div class="list">${renderCalendarCard()}<div class="label">Workouts · ${logs.length}</div>${rows}</div></section>`;
     stage.querySelector("#historyBack").addEventListener("click", showHome);
+    stage.querySelectorAll("[data-cal]").forEach((b) =>
+      b.addEventListener("click", () => {
+        calMonth = shiftMonth(calMonth, Number(b.dataset.cal));
+        showHistory();
+      }),
+    );
     stage.querySelectorAll("[data-view-workout]").forEach((el) =>
       el.addEventListener("click", () => showWorkoutDetail(el.dataset.viewWorkout)),
     );
@@ -2208,10 +2887,10 @@
     const rows = groups
       .map(
         (g) =>
-          `<div class="setRow" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>${esc(g.name)}</strong>${g.sets
+          `<div class="setRow" style="flex-direction:column;align-items:flex-start;gap:6px"><div><strong>${esc(g.name)}</strong><div class="tagRow"><span class="tag">${esc(equipLabel(g.sets[0]))}</span><span class="tag">${esc(loadLabel(g.sets[0]))}</span></div></div>${g.sets
             .map(
               (s) =>
-                `<div style="display:flex;align-items:center;gap:6px;width:100%" data-set-row="${s.idx}"><span style="min-width:42px">Set ${s.set}:</span><input type="number" step="0.5" min="0" value="${s.weight}" data-set-weight="${s.idx}" style="width:64px;min-height:32px;padding:0 6px;text-align:center">lb ×<input type="number" step="1" min="0" value="${s.reps}" data-set-reps="${s.idx}" style="width:52px;min-height:32px;padding:0 6px;text-align:center"><button class="delete" data-remove-set="${s.idx}" type="button" aria-label="Remove set">×</button></div>`,
+                `<div style="display:flex;align-items:center;gap:6px;width:100%" data-set-row="${s.idx}"><span style="min-width:42px">Set ${s.set}:</span><input type="number" step="0.5" min="0" value="${s.weight}" data-set-weight="${s.idx}" style="width:64px;min-height:32px;padding:0 6px;text-align:center">${esc(loadSuffix(s).trim())} ×<input type="number" step="1" min="0" value="${s.reps}" data-set-reps="${s.idx}" style="width:52px;min-height:32px;padding:0 6px;text-align:center"><button class="delete" data-remove-set="${s.idx}" type="button" aria-label="Remove set">×</button></div>`,
             )
             .join("")}</div>`,
       )
@@ -2227,7 +2906,7 @@
           <button class="submit" style="margin-top:0" type="submit">Add set</button>
         </form>`
       : "";
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}${addForm}<button class="submit" id="saveWorkoutDetail" style="margin:8px" type="button">Save</button></div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}${addForm}<button class="submit" id="saveWorkoutDetail" style="margin:8px;width:calc(100% - 16px)" type="button">Save</button></div></section>`;
     stage.querySelector("#detailBack").addEventListener("click", showHistory);
     stage.querySelector("#saveWorkoutDetail").addEventListener("click", () => {
       log.sets = log.sets.map((s, i) => {
@@ -2268,7 +2947,7 @@
         const reps = Number(stage.querySelector("#addSetReps").value);
         if (!Number.isFinite(reps) || reps <= 0) return;
         const setNum = log.sets.filter((s) => s.id === exId).length + 1;
-        log.sets.push({ id: exId, name: ex.name, set: setNum, weight, reps });
+        log.sets.push({ id: exId, name: ex.name, set: setNum, weight, reps, equip: ex.equip, mode: ex.mode });
         saveDB();
         showWorkoutDetail(id);
       });
@@ -2292,6 +2971,33 @@
     swappingExIdx = null;
     renderWorkoutEditor();
   }
+  const LOAD_MODES = [
+    ["total", "Total weight"],
+    ["perSide", "Per side / hand"],
+  ];
+  function equipSelect(attrs, value) {
+    return `<select class="miniSelect" ${attrs}>${Object.keys(EQUIP_LABEL)
+      .map((k) => `<option value="${k}" ${k === value ? "selected" : ""}>${EQUIP_LABEL[k]}</option>`)
+      .join("")}</select>`;
+  }
+  function modeSelect(attrs, value) {
+    return `<select class="miniSelect" ${attrs}>${LOAD_MODES.map(
+      ([k, label]) => `<option value="${k}" ${k === value ? "selected" : ""}>${label}</option>`,
+    ).join("")}</select>`;
+  }
+  // Equipment / load mode belong to the exercise, so an edit here follows it
+  // into every workout that uses it and into the archive.
+  function setExerciseField(id, field, value) {
+    const slot = field === "equip" ? 5 : 6;
+    Object.values(db.templates).forEach((t) =>
+      t.ex.forEach((ex) => {
+        if (ex[0] === id) ex[slot] = value;
+      }),
+    );
+    const a = db.exerciseArchive.find((x) => x.id === id);
+    if (a) a[field] = value;
+    saveDB();
+  }
   function renderWorkoutEditor() {
     const day = db.templates[editorDay];
     const inDay = new Set(day.ex.map((x) => x[0]));
@@ -2301,17 +3007,27 @@
         if (i === swappingExIdx) {
           return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><strong>Swap ${esc(ex[1])} for…</strong><select id="swapPick">${available.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select><div style="display:flex;gap:8px"><button class="submit" style="margin-top:0" data-confirm-swap="${i}" type="button">Confirm</button><button class="btn" data-cancel-swap type="button">Cancel</button></div></div>`;
         }
-        return `<div class="setRow"><div><strong>${esc(ex[1])}</strong><div>${ex[2]} reps · ${ex[3]}s rest</div></div><div style="display:flex;gap:8px"><button class="btn" data-swap-ex="${i}" type="button">Swap</button><button class="delete" data-remove-ex="${i}" type="button" aria-label="Remove">×</button></div></div>`;
+        return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><strong>${esc(ex[1])}</strong><div style="font-size:12px;font-weight:800;color:var(--muted)">${ex[2]} reps · ${ex[3]}s rest</div></div><div style="display:flex;gap:8px"><button class="btn" data-swap-ex="${i}" type="button">Swap</button><button class="delete" data-remove-ex="${i}" type="button" aria-label="Remove ${esc(ex[1])}">×</button></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${equipSelect(`data-equip="${i}"`, ex[5])}${modeSelect(`data-loadmode="${i}"`, ex[6])}</div></div>`;
       })
       .join("");
     const addOptions = available.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("");
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Edit Workouts</div><button id="editorBack" class="btn" type="button">Back</button></div><div class="tabs" style="grid-template-columns:repeat(3,1fr)"><button data-day="A" class="${editorDay === "A" ? "active" : ""}" type="button">A</button><button data-day="B" class="${editorDay === "B" ? "active" : ""}" type="button">B</button><button data-day="C" class="${editorDay === "C" ? "active" : ""}" type="button">C</button></div><div class="library">${rows || `<div class="setRow">No exercises — add one below.</div>`}<form id="addFromArchiveForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>Add from archive</strong>${available.length ? `<select id="archivePick">${addOptions}</select><button class="submit" type="submit">Add</button>` : `<div class="note">Every archived exercise is already in ${editorDay}.</div>`}</form><form id="addCustomForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>New custom exercise</strong><input id="newExName" type="text" placeholder="Name" required><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="newExTarget" type="number" inputmode="decimal" value="12" placeholder="Target reps"><input id="newExRest" type="number" inputmode="decimal" value="90" placeholder="Rest (sec)"></div><select id="newExType"><option value="upper">Upper body</option><option value="lower">Lower body</option><option value="small">Small / isolation</option><option value="body">Bodyweight</option></select><button class="submit" type="submit">Add to archive + ${editorDay}</button></form></div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">Edit Workouts</div><button id="editorBack" class="btn" type="button">Back</button></div><div class="tabs" style="grid-template-columns:repeat(3,1fr)"><button data-day="A" class="${editorDay === "A" ? "active" : ""}" type="button">A · Mon</button><button data-day="B" class="${editorDay === "B" ? "active" : ""}" type="button">B · Wed</button><button data-day="C" class="${editorDay === "C" ? "active" : ""}" type="button">C · Fri</button></div><div class="library">${rows || `<div class="setRow">No exercises — add one below.</div>`}<form id="addFromArchiveForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>Add from archive</strong>${available.length ? `<select id="archivePick">${addOptions}</select><button class="submit" type="submit">Add</button>` : `<div class="note">Every archived exercise is already in ${editorDay}.</div>`}</form><form id="addCustomForm" class="form" style="display:flex;flex-direction:column;gap:8px"><strong>New custom exercise</strong><input id="newExName" type="text" placeholder="Name" required><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="newExTarget" type="number" inputmode="decimal" value="12" placeholder="Target reps"><input id="newExRest" type="number" inputmode="decimal" value="90" placeholder="Rest (sec)"></div><select id="newExType"><option value="upper">Upper body</option><option value="lower">Lower body</option><option value="small">Small / isolation</option><option value="body">Bodyweight</option></select><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${equipSelect('id="newExEquip"', "machine")}${modeSelect('id="newExMode"', "total")}</div><button class="submit" type="submit">Add to archive + ${editorDay}</button></form></div></section>`;
     stage.querySelector("#editorBack").addEventListener("click", showHome);
     stage.querySelectorAll("[data-day]").forEach((b) =>
       b.addEventListener("click", () => {
         editorDay = b.dataset.day;
         swappingExIdx = null;
         renderWorkoutEditor();
+      }),
+    );
+    stage.querySelectorAll("[data-equip]").forEach((sel) =>
+      sel.addEventListener("change", () => {
+        setExerciseField(db.templates[editorDay].ex[Number(sel.dataset.equip)][0], "equip", sel.value);
+      }),
+    );
+    stage.querySelectorAll("[data-loadmode]").forEach((sel) =>
+      sel.addEventListener("change", () => {
+        setExerciseField(db.templates[editorDay].ex[Number(sel.dataset.loadmode)][0], "mode", sel.value);
       }),
     );
     stage.querySelectorAll("[data-swap-ex]").forEach((b) =>
@@ -2332,7 +3048,7 @@
         const pick = stage.querySelector("#swapPick")?.value;
         const a = db.exerciseArchive.find((x) => x.id === pick);
         if (!a) return;
-        db.templates[editorDay].ex[i] = [a.id, a.name, a.target, a.rest, a.type];
+        db.templates[editorDay].ex[i] = [a.id, a.name, a.target, a.rest, a.type, a.equip, a.mode];
         swappingExIdx = null;
         saveDB();
         renderWorkoutEditor();
@@ -2359,7 +3075,7 @@
         const pick = stage.querySelector("#archivePick")?.value;
         const a = db.exerciseArchive.find((x) => x.id === pick);
         if (!a) return;
-        db.templates[editorDay].ex.push([a.id, a.name, a.target, a.rest, a.type]);
+            db.templates[editorDay].ex.push([a.id, a.name, a.target, a.rest, a.type, a.equip, a.mode]);
         saveDB();
         renderWorkoutEditor();
       });
@@ -2371,9 +3087,11 @@
       const target = Number(stage.querySelector("#newExTarget").value) || 12;
       const rest = Number(stage.querySelector("#newExRest").value) || 90;
       const type = stage.querySelector("#newExType").value;
+      const equip = stage.querySelector("#newExEquip").value;
+      const mode = stage.querySelector("#newExMode").value;
       const id = slugify(name);
-      db.exerciseArchive.push({ id, name, target, rest, type });
-      db.templates[editorDay].ex.push([id, name, target, rest, type]);
+      db.exerciseArchive.push({ id, name, target, rest, type, equip, mode });
+      db.templates[editorDay].ex.push([id, name, target, rest, type, equip, mode]);
       saveDB();
       renderWorkoutEditor();
     });

@@ -1534,10 +1534,22 @@
   }
   // How a weight was loaded, so "80 lb" is never ambiguous between a machine's
   // total stack and 80 lb on each side / in each hand.
+  // Live workouts, templates and archive entries all carry equip/mode. Logged
+  // sets carry their own copy taken when the set was logged — nothing here
+  // falls back to the current settings, so editing an exercise in Edit
+  // Workouts never rewrites history. Sets logged before the app tracked this
+  // read as "not recorded" until they are set on the logged workout itself.
   function exMetaFor(x) {
-    if (x && (x.equip || x.mode)) return x;
-    const a = (db.exerciseArchive || []).find((y) => y.id === (x && x.id));
-    return a || { equip: "machine", mode: "total" };
+    return x && (x.equip || x.mode) ? x : { equip: "machine", mode: "total" };
+  }
+  function loggedLoadLabel(s) {
+    if (!s || !s.mode) return null;
+    if (s.mode !== "perSide") return "total";
+    return s.equip === "dumbbell" ? "per hand" : "per side";
+  }
+  function loggedUnit(s) {
+    const m = loggedLoadLabel(s);
+    return m === "per hand" ? "lb/hand" : m === "per side" ? "lb/side" : "lb";
   }
   function equipLabel(x) {
     return EQUIP_LABEL[exMetaFor(x).equip] || "Machine";
@@ -1754,7 +1766,7 @@
     )}</div></div>`;
   }
   // Today's checklist, straight off the plan: lift Mon/Wed/Fri, incline walk
-  // Tue/Thu, weigh in daily, waist on Sundays, calories inside the target band.
+  // Tue/Thu, weigh in daily, waist on Mondays, calories inside the target band.
   function renderTodayCard(facts) {
     const today = dayKey();
     const f = facts[today] || {};
@@ -1862,7 +1874,7 @@
           "Mon / Wed / Fri: 3-day lifting split (rotating A/B/C)",
           "Tue / Thu: 60 min incline treadmill walk (mandatory)",
           "Sat / Sun: optional extra incline walk if desired, not required",
-          "Sunday: waist measurement + full body-fat tape measurement (weekly)",
+          "Monday: waist measurement + full body-fat tape measurement (weekly)",
         ]),
       ),
       section(
@@ -1887,7 +1899,7 @@
             "Weeks 5–8 (through ~Oct 19): move to 3 sets/exercise. Begin progressive overload — add weight when you hit top of rep range 2 sessions in a row.",
           ]) +
           sub("Tracking") +
-          p("Weekly: waist + tape body-fat measurement every Sunday, bodyweight daily (track weekly average). Monthly: progress photo, same lighting/pose.") +
+          p("Weekly: waist + tape body-fat measurement every Monday, bodyweight daily (track weekly average). Monthly: progress photo, same lighting/pose.") +
           sub("Expected by end of Phase 1 (~Oct 19)") +
           ul(["Weight: -7 to -10 lbs", "Body fat: 22% → ~19-20%"]),
       ),
@@ -1897,12 +1909,12 @@
           ul([
             "Late Oct: recalculate TDEE using new bodyweight. Adjust calories only if progress stalls 2+ weeks despite adherence.",
             "Nov onward: increase to 4 sets/exercise once 3 feels easy.",
-            "Continue weekly Sunday measurements — this is the main signal for when to switch to Phase 3.",
+            "Continue weekly Monday measurements — this is the main signal for when to switch to Phase 3.",
           ]) +
-          sub("Rough body fat trajectory (go by actual Sunday numbers, not the calendar)") +
+          sub("Rough body fat trajectory (go by actual Monday numbers, not the calendar)") +
           ul(["End Nov: ~18%", "End Dec: ~16-17%", "End Jan: ~15%", "End Feb: ~13-14%", "Early Mar: 13% — switch to Phase 3"]) +
           sub("Decision rule") +
-          p("Switch to Phase 3 the Sunday the tape measurement reads ~13%, whenever that actually happens — don't wait for a calendar date, and don't keep cutting past 13% \"just to be sure.\""),
+          p("Switch to Phase 3 the Monday the tape measurement reads ~13%, whenever that actually happens — don't wait for a calendar date, and don't keep cutting past 13% \"just to be sure.\""),
       ),
       section(
         "Phase 3 — Early Mar – Late May 2027 (~3.5 months)",
@@ -1946,13 +1958,13 @@
             "Dec 2027: optional second short cut (2-4 weeks) if body fat has risen enough to want to reveal the new muscle before year-end — otherwise the build can extend further into 2028 if progress is still trending well.",
           ]) +
           sub("Key difference from Phase 3") +
-          p("No artificial time pressure. Extend or shorten based on actual weekly Sunday tape measurements and how arms are progressing, not a fixed calendar. This is the phase where \"obviously muscular arms\" should actually arrive."),
+          p("No artificial time pressure. Extend or shorten based on actual weekly Monday tape measurements and how arms are progressing, not a fixed calendar. This is the phase where \"obviously muscular arms\" should actually arrive."),
       ),
       section(
         "Tracking Checklist",
         ul([
           "Bodyweight — daily, track weekly average",
-          "Waist + full body-fat tape measurement — every Sunday",
+          "Waist + full body-fat tape measurement — every Monday",
           "Progress photo — monthly, same lighting/pose/time",
           "Lift weights/reps — every session",
         ]),
@@ -1962,7 +1974,7 @@
         ul([
           "Never below 1,900 cal, even mid-cut.",
           "Never below 170g protein (180g+ in Phase 3/surplus).",
-          "Switch phases by the Sunday body-fat number, not the calendar.",
+          "Switch phases by the Monday body-fat number, not the calendar.",
           "Retest TDEE at every phase transition.",
           "Don't stack extra cardio cuts and extra calorie cuts simultaneously.",
           "Given the compressed Phase 3, protect the Mon/Wed/Fri lifting sessions above all else — missed sessions cost more in a short window.",
@@ -2659,7 +2671,7 @@
       <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="editApprox" type="checkbox" style="width:auto;min-height:auto" ${x.approx ? "checked" : ""}>Estimate (not exact)</label>
       <button class="submit" id="saveFoodIngredients" style="margin-top:0" type="button">Save</button>`;
   }
-  const WAIST_DAY = 0; // 0=Sunday .. 6=Saturday
+  const WAIST_DAY = 1; // 0=Sunday .. 6=Saturday
   const WAIST_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   function showBody() {
     stopTimer();
@@ -2887,15 +2899,24 @@
       byId[s.id].sets.push({ ...s, idx: i });
     });
     const rows = groups
-      .map(
-        (g) =>
-          `<div class="setRow" style="flex-direction:column;align-items:flex-start;gap:6px"><div><strong>${esc(g.name)}</strong><div class="tagRow"><span class="tag">${esc(equipLabel(g.sets[0]))}</span><span class="tag">${esc(loadLabel(g.sets[0]))}</span></div></div>${g.sets
-            .map(
-              (s) =>
-                `<div style="display:flex;align-items:center;gap:6px;width:100%" data-set-row="${s.idx}"><span style="min-width:42px">Set ${s.set}:</span><input type="number" step="0.5" min="0" value="${s.weight}" data-set-weight="${s.idx}" style="width:64px;min-height:32px;padding:0 6px;text-align:center">${esc(loadSuffix(s).trim())} ×<input type="number" step="1" min="0" value="${s.reps}" data-set-reps="${s.idx}" style="width:52px;min-height:32px;padding:0 6px;text-align:center"><button class="delete" data-remove-set="${s.idx}" type="button" aria-label="Remove set">×</button></div>`,
-            )
-            .join("")}</div>`,
-      )
+      .map((g, gi) => {
+        const first = g.sets[0];
+        const sets = g.sets
+          .map(
+            (s) =>
+              `<div style="display:flex;align-items:center;gap:6px;width:100%" data-set-row="${s.idx}"><span style="min-width:42px">Set ${s.set}:</span><input type="number" step="0.5" min="0" value="${s.weight}" data-set-weight="${s.idx}" style="width:64px;min-height:32px;padding:0 6px;text-align:center"><span data-unit="${gi}">${esc(loggedUnit(s))}</span>×<input type="number" step="1" min="0" value="${s.reps}" data-set-reps="${s.idx}" style="width:52px;min-height:32px;padding:0 6px;text-align:center"><button class="delete" data-remove-set="${s.idx}" type="button" aria-label="Remove set">×</button></div>`,
+          )
+          .join("");
+        const unset = !first.equip && !first.mode
+          ? `<div data-unset="${gi}" style="font-size:11px;font-weight:800;color:var(--muted)">Not recorded — tap to set for this workout only</div>`
+          : "";
+        return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><strong>${esc(g.name)}</strong>${sets}${unset}${segRow(
+          "Equip",
+          `data-log-equip="${gi}"`,
+          EQUIP_OPTIONS,
+          first.equip,
+        )}${segRow("Weight", `data-log-mode="${gi}"`, loadOptions(first.equip), first.mode)}</div>`;
+      })
       .join("");
     const addForm = db.exerciseArchive.length
       ? `<form id="addSetForm" class="form" style="display:flex;flex-direction:column;gap:8px;margin:8px">
@@ -2925,6 +2946,30 @@
       saveDB();
       showHistory();
     });
+    const setLogMeta = (gi, field, value) => {
+      const g = groups[gi];
+      if (!g) return;
+      g.sets.forEach((s) => {
+        s[field] = value;
+        if (log.sets[s.idx]) log.sets[s.idx][field] = value;
+      });
+      saveDB();
+      stage.querySelectorAll(`[data-log-${field === "equip" ? "equip" : "mode"}="${gi}"]`).forEach((btn) => {
+        const on = btn.dataset.seg === value;
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-pressed", String(on));
+      });
+      const modeBtn = stage.querySelector(`[data-log-mode="${gi}"][data-seg="perSide"]`);
+      if (modeBtn) modeBtn.textContent = g.sets[0].equip === "dumbbell" ? "Per hand" : "Per side";
+      stage.querySelectorAll(`[data-unit="${gi}"]`).forEach((el) => (el.textContent = loggedUnit(g.sets[0])));
+      stage.querySelector(`[data-unset="${gi}"]`)?.remove();
+    };
+    stage.querySelectorAll("[data-log-equip]").forEach((b) =>
+      b.addEventListener("click", () => setLogMeta(Number(b.dataset.logEquip), "equip", b.dataset.seg)),
+    );
+    stage.querySelectorAll("[data-log-mode]").forEach((b) =>
+      b.addEventListener("click", () => setLogMeta(Number(b.dataset.logMode), "mode", b.dataset.seg)),
+    );
     stage.querySelectorAll("[data-remove-set]").forEach((b) =>
       b.addEventListener("click", () => {
         const i = Number(b.dataset.removeSet);
@@ -2948,8 +2993,9 @@
         const weight = Number(stage.querySelector("#addSetWeight").value) || 0;
         const reps = Number(stage.querySelector("#addSetReps").value);
         if (!Number.isFinite(reps) || reps <= 0) return;
-        const setNum = log.sets.filter((s) => s.id === exId).length + 1;
-        log.sets.push({ id: exId, name: ex.name, set: setNum, weight, reps, equip: ex.equip, mode: ex.mode });
+        const sameEx = log.sets.filter((s) => s.id === exId);
+        const from = sameEx.find((s) => s.equip || s.mode) || ex;
+        log.sets.push({ id: exId, name: ex.name, set: sameEx.length + 1, weight, reps, equip: from.equip, mode: from.mode });
         saveDB();
         showWorkoutDetail(id);
       });

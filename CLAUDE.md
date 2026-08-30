@@ -22,3 +22,10 @@ already reflect them.
 Charts are hand-rolled inline SVG (`timeChart`) — no chart library, no
 build step. Colors come from the `--ch-*` custom properties in
 `index.html` so light/dark swap in one place.
+
+A logged workout is a snapshot: each set stores its own `equip`/`mode`
+when it is logged, and nothing in history reads today's
+`templates`/`exerciseArchive` values. Changing an exercise in Edit
+Workouts must never rewrite a past log — sets recorded before the app
+tracked this read as "not recorded" and are set by hand on the logged
+workout itself.

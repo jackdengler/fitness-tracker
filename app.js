@@ -616,6 +616,17 @@
       fiber: 4,
       other: "Label: 1 cup (85g) = 35 cal, 30mg sodium, 6g carb, 2g fiber, 2g protein. 170g = 2 servings exactly.",
     },
+    broccolislawtaylorfarms: {
+      name: "Broccoli Slaw (Taylor Farms)",
+      serving: "1 cup (85g)",
+      calories: 30,
+      protein: 2,
+      carbs: 6,
+      fat: 0,
+      sodium: 30,
+      fiber: 2,
+      other: "Per label: 1 cup (85g) = 30 cal, 2g sugar, 270mg potassium, 40mg calcium, 60mg vitamin C, 80mcg vitamin K. 4 cups per bag. Broccoli, carrot, red cabbage.",
+    },
   };
   const meals = [
     {
@@ -645,6 +656,20 @@
       approx: true,
       note: "Chicken is a per-gram ingredient — edit its qty to the exact grams you used and the total recalculates. Default here is 170g (~6 oz, 2 tenders). Butter/romaine lettuce is the wrap, plus diced tomato, chopped red onion, and Bolthouse honey mustard yogurt dressing.",
       ingredientIds: [["chickentenderbare", 170], "butterromainelettuceleaves", "tomatomedium", "redonionquartercup", "honeymustarddressing"],
+    },
+    {
+      id: "chicken-honey-mustard-slaw-salad",
+      name: "Chicken Honey Mustard Slaw Salad",
+      serving: "170g chicken, 2 cups broccoli slaw, honey mustard dressing",
+      calories: 454,
+      protein: 37.1,
+      carbs: 46.1,
+      fat: 13,
+      sodium: 1316,
+      fiber: 6,
+      approx: true,
+      note: "The chicken honey mustard wrap as a salad — broccoli slaw is the base instead of lettuce leaves. Slaw defaults to 2 cups (170g, half a bag); edit its qty in cups. Chicken is a per-gram ingredient — edit its qty to the exact grams you used and the total recalculates. Default here is 170g (~6 oz, 2 tenders).",
+      ingredientIds: [["chickentenderbare", 170], ["broccolislawtaylorfarms", 2], "tomatomedium", "redonionquartercup", "honeymustarddressing"],
     },
     {
       id: "bagel-cream-cheese",

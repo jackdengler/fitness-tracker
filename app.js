@@ -727,6 +727,19 @@
       note: "Totals are the exact sum of the listed ingredients. Salmon and avocado are both gram-adjustable (like the chicken/beef) — defaults are 113g salmon (4oz, ~1/2 fillet) and 100g avocado (~1/2 a Hass avocado); edit either qty to your exact amount. Broccoli is a fixed 170g. Seasoned with avocado oil spray, salt, and pepper (no elote seasoning).",
       ingredientIds: [["salmonfillet", 113], "whitericeuncooked", "broccoli170g", ["avocado", 100], "avocadooilspray", "saltpinch", "blackpepper"],
     },
+    {
+      id: "brothers-cousins-carnitas-burrito",
+      name: "Brothers Cousins Carnitas Burrito",
+      serving: "1 burrito",
+      calories: 1165,
+      protein: 66,
+      carbs: 122,
+      fat: 50,
+      sodium: 2375,
+      fiber: 12,
+      approx: true,
+      note: "Restaurant item, estimated. 18g of the 50g fat is saturated (not tracked separately).",
+    },
   ];
   const snacks = [
     {

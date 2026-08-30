@@ -1412,6 +1412,7 @@
   // --- Day-by-day activity (weight / food / lifts / cardio) ---------------
   const PLAN_LIFT_DAYS = [1, 3, 5]; // Mon / Wed / Fri per the plan
   const PLAN_CARDIO_DAYS = [2, 4]; // Tue / Thu
+  const CARDIO_DAY_MIN = 30; // total minutes in a day for it to count as cardio
   // Estimated maintenance, used as the calorie chart's baseline: roughly
   // 13 kcal per lb of bodyweight for this training load, tracking the latest
   // weigh-in so the line moves as bodyweight does.
@@ -1443,7 +1444,10 @@
       f.food = true;
     });
     db.weightLogs.forEach((w) => (get(w.date).weight = w.weight));
-    Object.values(map).forEach((f) => (f.over = f.food && f.calories > targets.calories.max));
+    Object.values(map).forEach((f) => {
+      f.over = f.food && f.calories > targets.calories.max;
+      f.cardioDay = f.cardioMin >= CARDIO_DAY_MIN;
+    });
     return map;
   }
 
@@ -1473,11 +1477,11 @@
       const past = daysBetween(key, today) > 0;
       const lifts = f.lifts || [];
       const planned = PLAN_LIFT_DAYS.includes(wd) ? "lift" : PLAN_CARDIO_DAYS.includes(wd) ? "cardio" : null;
-      const missed = past && ((planned === "lift" && !lifts.length) || (planned === "cardio" && !f.cardio));
+      const missed = past && ((planned === "lift" && !lifts.length) || (planned === "cardio" && !f.cardioDay));
       if (past || key === today) {
         tally.elapsed++;
         tally.lifts += lifts.length;
-        tally.cardio += f.cardio || 0;
+        if (f.cardioDay) tally.cardio++;
         if (f.over) tally.over++;
         if (f.weight != null) tally.weighed++;
       }
@@ -1486,12 +1490,14 @@
       if (missed) cls.push("missed");
       if (key === today) cls.push("today");
       const dots =
-        (f.cardio ? `<i class="calDot" style="background:var(--ch-3)"></i>` : "") +
+        (f.cardio
+          ? `<i class="calDot${f.cardioDay ? "" : " partial"}" style="${f.cardioDay ? "background:var(--ch-3)" : "border-color:var(--ch-3)"}"></i>`
+          : "") +
         (f.over ? `<i class="calDot" style="background:var(--ch-bad)"></i>` : "") +
         (f.weight != null ? `<i class="calDot" style="background:var(--muted)"></i>` : "");
       const notes = [];
       if (lifts.length) notes.push(`Workout ${lifts.join(" + ")}`);
-      if (f.cardio) notes.push(`${fmtMinutes(f.cardioMin)} cardio`);
+      if (f.cardio) notes.push(`${fmtMinutes(f.cardioMin)} cardio${f.cardioDay ? "" : " (under " + CARDIO_DAY_MIN + " min)"}`);
       if (f.food) notes.push(`${num(f.calories)} cal`);
       if (f.weight != null) notes.push(`${Number(f.weight).toFixed(1)} lb`);
       if (missed) notes.push(`missed planned ${planned}`);
@@ -1499,13 +1505,14 @@
     }).join("");
     const legend = [
       `<span><i class="swatch" style="background:var(--ch-1)"></i>Lift (A/B/C)</span>`,
-      `<span><i class="swatch dot" style="background:var(--ch-3)"></i>Cardio</span>`,
+      `<span><i class="swatch dot" style="background:var(--ch-3)"></i>Cardio day (${CARDIO_DAY_MIN}+ min)</span>`,
+      `<span><i class="swatch dot" style="background:transparent;border:1.5px solid var(--ch-3)"></i>Under ${CARDIO_DAY_MIN} min</span>`,
       `<span><i class="swatch dot" style="background:var(--ch-bad)"></i>Over ${targets.calories.max} cal</span>`,
       `<span><i class="swatch dot" style="background:var(--muted)"></i>Weighed in</span>`,
       `<span><i class="swatch" style="background:transparent;border:1px dashed var(--ch-bad)"></i>Planned session missed</span>`,
     ].join("");
     const summary = tally.elapsed
-      ? `${tally.lifts} lift${tally.lifts === 1 ? "" : "s"} · ${tally.cardio} cardio · ${tally.over} day${tally.over === 1 ? "" : "s"} over · weighed in ${tally.weighed}/${tally.elapsed} days`
+      ? `${tally.lifts} lift${tally.lifts === 1 ? "" : "s"} · ${tally.cardio} cardio day${tally.cardio === 1 ? "" : "s"} · ${tally.over} day${tally.over === 1 ? "" : "s"} over · weighed in ${tally.weighed}/${tally.elapsed} days`
       : "Nothing logged this month yet.";
     return `<div class="card"><div class="calNav"><button type="button" data-cal="-1" aria-label="Previous month">‹</button><div class="calMonth">${esc(first.toLocaleDateString("en-US", { month: "long", year: "numeric" }))}</div><button type="button" data-cal="1" aria-label="Next month">›</button></div><div class="calGrid">${head}${blanks}${cells}</div><div class="calSummary">${esc(summary)}</div><div class="legend">${legend}</div></div>`;
   }
@@ -1740,8 +1747,9 @@
     for (let i = 0; i < 7; i++) days.push(addDays(start, i));
     const elapsed = days.filter((d) => daysBetween(d, today) >= 0);
     const lifts = elapsed.reduce((n, d) => n + ((facts[d] && facts[d].lifts.length) || 0), 0);
-    const cardio = elapsed.reduce((n, d) => n + ((facts[d] && facts[d].cardio) || 0), 0);
-    const calDays = elapsed.filter((d) => facts[d] && facts[d].food);
+    const cardio = elapsed.filter((d) => facts[d] && facts[d].cardioDay).length;
+    // Today is still in progress, so it would drag the average down.
+    const calDays = elapsed.filter((d) => d !== today && facts[d] && facts[d].food);
     const avgCal = calDays.length ? calDays.reduce((n, d) => n + facts[d].calories, 0) / calDays.length : null;
     const weighed = elapsed.map((d) => (facts[d] ? facts[d].weight : null)).filter((v) => v != null);
     const prior = [];
@@ -1758,7 +1766,9 @@
       `${lifts}<span style="font-size:10px;color:var(--muted)">/3</span>`,
     )}${stat("Cardio", `${cardio}<span style="font-size:10px;color:var(--muted)">/2</span>`)}${stat(
       "Avg cal",
-      avgCal == null ? "—" : num(avgCal),
+      avgCal == null
+        ? "—"
+        : `${num(avgCal)}<span style="font-size:10px;color:var(--muted)"> ${calDays.length}d</span>`,
     )}${stat(
       "Weight",
       delta == null ? "—" : `${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)}`,
@@ -1774,8 +1784,11 @@
     const plan = { 1: "A", 3: "B", 5: "C" }[wd];
     const items = [];
     if (plan) items.push([`Workout ${plan}`, (f.lifts || []).length > 0]);
-    if (PLAN_CARDIO_DAYS.includes(wd)) items.push(["60 min incline walk", (f.cardio || 0) > 0]);
-    if (!plan && !PLAN_CARDIO_DAYS.includes(wd)) items.push(["Rest day — optional walk", (f.cardio || 0) > 0]);
+    const cardioSoFar = f.cardioMin ? ` · ${fmtMinutes(f.cardioMin)} so far` : "";
+    if (PLAN_CARDIO_DAYS.includes(wd))
+      items.push([`Incline walk · ${CARDIO_DAY_MIN}+ min${f.cardioDay ? "" : cardioSoFar}`, !!f.cardioDay]);
+    if (!plan && !PLAN_CARDIO_DAYS.includes(wd))
+      items.push([`Rest day — optional walk${f.cardioDay ? "" : cardioSoFar}`, !!f.cardioDay]);
     items.push(["Weigh in", f.weight != null]);
     if (wd === WAIST_DAY) items.push(["Waist measurement", db.waistLogs.some((x) => x.date === today)]);
     items.push([

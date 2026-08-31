@@ -756,6 +756,18 @@
       approx: true,
       note: "Restaurant item, estimated. 18g of the 50g fat is saturated (not tracked separately).",
     },
+    {
+      id: "jersey-mikes-italian-no-mayo",
+      name: "Jersey Mike's Italian (no mayo)",
+      serving: "1 sub, no mayo",
+      calories: 960,
+      protein: 46.9,
+      carbs: 72,
+      fat: 54.5,
+      sodium: 2824,
+      fiber: 4.7,
+      note: "Totals from the Jersey Mike's nutrition calculator for the sub as ordered, no mayo: 960 cal, 54.52g fat (14.21g saturated, 0.36g trans), 92.38mg cholesterol, 2,823.62mg sodium, 71.99g carb, 4.69g fiber, 10.03g sugar, 46.87g protein.",
+    },
   ];
   const snacks = [
     {

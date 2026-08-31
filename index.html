@@ -339,6 +339,21 @@
         font-size: 13px;
         font-weight: 850;
       }
+      #fitness-tracker-v13 .todoTap {
+        width: 100%;
+        /* Matches the 18px tick + the strip's 9px gap, so the tappable row
+           keeps the same rhythm as the plain rows around it. */
+        min-height: 27px;
+        border: 0;
+        padding: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #fitness-tracker-v13 .todoTap:active .tick {
+        border-color: light-dark(#8a8e86, #7d817b);
+      }
       #fitness-tracker-v13 .tick {
         width: 18px;
         height: 18px;

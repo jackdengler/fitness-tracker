@@ -1013,6 +1013,7 @@
       foodLogs: [],
       weightLogs: [],
       waistLogs: [],
+      creatineLogs: [],
       workoutLogs: [],
       cardioLogs: [],
       liftHistory: {},
@@ -1026,6 +1027,7 @@
         foodLogs: [],
         weightLogs: [],
         waistLogs: [],
+        creatineLogs: [],
         workoutLogs: [],
         cardioLogs: [],
         liftHistory: {},
@@ -1827,16 +1829,19 @@
     if (!plan && !PLAN_CARDIO_DAYS.includes(wd))
       items.push([`Rest day — optional walk${f.cardioDay ? "" : cardioSoFar}`, !!f.cardioDay]);
     items.push(["Weigh in", f.weight != null]);
+    items.push([`Creatine · ${CREATINE_DOSE_G}g`, creatineTaken(today), "creatine"]);
     if (wd === WAIST_DAY) items.push(["Waist measurement", db.waistLogs.some((x) => x.date === today)]);
     items.push([
       `Calories ${targetLabel("calories")}`,
       !!f.food && f.calories >= targets.calories.min && f.calories <= targets.calories.max,
     ]);
     const rows = items
-      .map(
-        ([label, done]) =>
-          `<div class="todo"><span class="tick${done ? " on" : ""}">${done ? "✓" : ""}</span>${esc(label)}</div>`,
-      )
+      .map(([label, done, tap]) => {
+        const inner = `<span class="tick${done ? " on" : ""}">${done ? "✓" : ""}</span>${esc(label)}`;
+        return tap
+          ? `<button class="todo todoTap" type="button" data-toggle="${tap}" aria-pressed="${done}">${inner}</button>`
+          : `<div class="todo">${inner}</div>`;
+      })
       .join("");
     const weekday = effectiveNow().toLocaleDateString("en-US", { weekday: "long" });
     return `<div class="label">Today · ${esc(weekday)}</div><div class="macroStrip" style="gap:9px">${rows}</div>`;
@@ -1881,8 +1886,22 @@
     stage.querySelector("#history").addEventListener("click", showHistory);
     stage.querySelector("#mealHistory").addEventListener("click", () => showFoodHistory());
     stage.querySelector("#openPlan").addEventListener("click", showPlan);
+    stage.querySelectorAll('[data-toggle="creatine"]').forEach((b) =>
+      b.addEventListener("click", () => {
+        toggleCreatine(dayKey());
+        rerenderHome();
+      }),
+    );
     setPublishStamp();
     armBackgroundTimer();
+  }
+  // Re-render home in place — the Today card sits below the fold, so a plain
+  // showHome() would jump the scroll back to the top on every tap.
+  function rerenderHome() {
+    const top = stage.querySelector(".home")?.scrollTop || 0;
+    showHome();
+    const next = stage.querySelector(".home");
+    if (next) next.scrollTop = top;
   }
   function showPlan() {
     stopTimer();
@@ -2721,6 +2740,18 @@
       <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="editApprox" type="checkbox" style="width:auto;min-height:auto" ${x.approx ? "checked" : ""}>Estimate (not exact)</label>
       <button class="submit" id="saveFoodIngredients" style="margin-top:0" type="button">Save</button>`;
   }
+  const CREATINE_DOSE_G = 5;
+  // A daily yes/no tick, not a measurement: a date is in creatineLogs or it
+  // isn't. Tapping the row on the Today card is the only way to set it.
+  function creatineTaken(date) {
+    return db.creatineLogs.some((x) => x.date === date);
+  }
+  function toggleCreatine(date) {
+    const i = db.creatineLogs.findIndex((x) => x.date === date);
+    if (i === -1) db.creatineLogs.push({ date, ts: Date.now() });
+    else db.creatineLogs.splice(i, 1);
+    saveDB();
+  }
   const WAIST_DAY = 1; // 0=Sunday .. 6=Saturday
   const WAIST_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   function showBody() {
@@ -2762,7 +2793,8 @@
     stage.querySelectorAll("[data-delete-body]").forEach((b) =>
       b.addEventListener("click", () => {
         const [kind, date] = b.dataset.deleteBody.split("|");
-        const arr = kind === "weight" ? db.weightLogs : db.waistLogs;
+        const arr = { weight: db.weightLogs, waist: db.waistLogs, creatine: db.creatineLogs }[kind];
+        if (!arr) return;
         const idx = arr.findIndex((x) => x.date === date);
         if (idx === -1) return;
         const [removed] = arr.splice(idx, 1);
@@ -2779,10 +2811,12 @@
     armBackgroundTimer();
   }
   function renderBody() {
+    const order = { weight: 0, waist: 1, creatine: 2 };
     const items = [
       ...db.weightLogs.map((x) => ({ kind: "weight", date: x.date, text: `${Number(x.weight).toFixed(1)} lb` })),
       ...db.waistLogs.map((x) => ({ kind: "waist", date: x.date, text: `${Number(x.waist).toFixed(1)} in (waist)` })),
-    ].sort((a, b) => b.date.localeCompare(a.date) || (a.kind === b.kind ? 0 : a.kind === "weight" ? -1 : 1));
+      ...db.creatineLogs.map((x) => ({ kind: "creatine", date: x.date, text: `${CREATINE_DOSE_G}g creatine` })),
+    ].sort((a, b) => b.date.localeCompare(a.date) || order[a.kind] - order[b.kind]);
     if (!items.length) return `<div class="empty">No measurements yet.</div>`;
     return items
       .map(

@@ -1721,11 +1721,14 @@
     root.appendChild(el);
     undoTimer = setTimeout(clearUndoToast, 5000);
   }
-  function renderWeightChartCard() {
+  // daysOverride lets a caller line this chart up with another one above it —
+  // weight and calories are different units, so they read as two stacked charts
+  // over the same dates rather than one chart with two y-scales.
+  function renderWeightChartCard(daysOverride) {
     const logged = db.weightLogs.filter((w) => Number.isFinite(Number(w.weight)));
     if (logged.length < 2)
       return `<div class="card"><div class="cardHead"><div class="cardTitle">Weight trend</div></div>${emptyBlock("Log weight on two or more days to see the trend.")}</div>`;
-    const days = dayRange(logged.map((w) => w.date), 60);
+    const days = daysOverride && daysOverride.length ? daysOverride : dayRange(logged.map((w) => w.date), 60);
     const byDate = {};
     logged.forEach((w) => (byDate[w.date] = Number(w.weight)));
     const daily = days.map((d) => (Number.isFinite(byDate[d]) ? byDate[d] : null));
@@ -1749,10 +1752,10 @@
     });
     return `<div class="card"><div class="cardHead"><div class="cardTitle">Weight trend</div><div class="cardNote">${esc(note)}</div></div>${chart}</div>`;
   }
-  function renderCaloriesChartCard() {
+  function renderCaloriesChartCard(daysOverride) {
     if (!db.foodLogs.length)
       return `<div class="card"><div class="cardHead"><div class="cardTitle">Calories</div></div>${emptyBlock("Log some food to see the trend.")}</div>`;
-    const days = dayRange(db.foodLogs.map((x) => x.date), 60);
+    const days = daysOverride && daysOverride.length ? daysOverride : dayRange(db.foodLogs.map((x) => x.date), 60);
     const byDate = {};
     db.foodLogs.forEach((x) => (byDate[x.date] = (byDate[x.date] || 0) + (x.calories || 0)));
     const daily = days.map((d) => (byDate[d] != null ? byDate[d] : null));
@@ -2437,7 +2440,8 @@
     if (active()) saveActive();
     phase = "foodHistory";
     const d = dayKey();
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><div style="display:flex;gap:8px"><button id="openAdHocFood" class="btn" type="button">+ Add</button><button id="foodHistoryBack" class="btn" type="button">Back</button></div></div><div class="library">${renderCaloriesChartCard()}${renderToday(d)}</div></section>`;
+    const foodDays = db.foodLogs.length ? dayRange(db.foodLogs.map((x) => x.date), 60) : null;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">History</div><div style="display:flex;gap:8px"><button id="openAdHocFood" class="btn" type="button">+ Add</button><button id="foodHistoryBack" class="btn" type="button">Back</button></div></div><div class="library">${renderCaloriesChartCard(foodDays)}${renderWeightChartCard(foodDays)}${renderToday(d)}</div></section>`;
     stage.querySelector("#foodHistoryBack").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#openAdHocFood").addEventListener("click", showAdHocFood);
     stage.querySelectorAll("[data-delete-food]").forEach((b) =>
@@ -2600,7 +2604,9 @@
       (byDate[x.date] || (byDate[x.date] = [])).push(x);
     });
     const dates = Object.keys(byDate).sort().reverse();
-    const head = `<div class="foodTableHead"><span>Day</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span>Fib</span><span></span></div>`;
+    const weightByDate = {};
+    db.weightLogs.forEach((w) => (weightByDate[w.date] = Number(w.weight)));
+    const head = `<div class="foodTableHead"><span>Day</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span>Fib</span><span>Wt</span><span></span></div>`;
     const body = dates
       .map((date) => {
         const items = byDate[date];
@@ -2624,13 +2630,13 @@
           .map((x) => renderFoodRow(x))
           .join("");
         const label = `${fmtDay(date)}${totals.approx ? " · ~est" : ""}`;
-        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${totals.approx ? "~" : ""}${Math.round(totals.calories)}</span><span>${Math.round(totals.protein)}</span><span>${Math.round(totals.carbs)}</span><span>${Math.round(totals.fat)}</span><span>${Math.round(totals.fiber)}</span><span></span></div></summary><div>${rows}</div></details>`;
+        return `<details ${isToday ? "open" : ""}><summary class="foodDaySummary"><div class="foodTableRow"><span><span class="chevron">▸</span><span class="cellName">${esc(label)}</span></span><span>${totals.approx ? "~" : ""}${Math.round(totals.calories)}</span><span>${Math.round(totals.protein)}</span><span>${Math.round(totals.carbs)}</span><span>${Math.round(totals.fat)}</span><span>${Math.round(totals.fiber)}</span><span>${Number.isFinite(weightByDate[date]) ? weightByDate[date].toFixed(1) : "—"}</span><span></span></div></summary><div>${rows}</div></details>`;
       })
       .join("");
     return `${head}<div class="foodDayList">${body}</div>`;
   }
   function renderFoodRow(x) {
-    return `<div class="foodItemRow" data-view-food="${x.id}"><div class="foodTableRow"><span><span class="cellName">${x.approx ? "~" : ""}${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</span></span><span>${Math.round(x.calories)}</span><span>${Math.round(x.protein || 0)}</span><span>${Math.round(x.carbs || 0)}</span><span>${Math.round(x.fat || 0)}</span><span>${Math.round(x.fiber || 0)}</span><span><button class="foodDeleteBtn" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></span></div></div>`;
+    return `<div class="foodItemRow" data-view-food="${x.id}"><div class="foodTableRow"><span><span class="cellName">${x.approx ? "~" : ""}${esc(x.name)}${x.incomplete ? " · INCOMPLETE" : ""}</span></span><span>${Math.round(x.calories)}</span><span>${Math.round(x.protein || 0)}</span><span>${Math.round(x.carbs || 0)}</span><span>${Math.round(x.fat || 0)}</span><span>${Math.round(x.fiber || 0)}</span><span></span><span><button class="foodDeleteBtn" data-delete-food="${x.id}" type="button" aria-label="Delete">×</button></span></div></div>`;
   }
   function showFoodDetail(id) {
     stopTimer();

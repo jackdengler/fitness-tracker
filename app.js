@@ -2983,7 +2983,7 @@
     const byId = {};
     log.sets.forEach((s, i) => {
       if (!byId[s.id]) {
-        byId[s.id] = { name: s.name, sets: [] };
+        byId[s.id] = { id: s.id, name: s.name, sets: [] };
         groups.push(byId[s.id]);
       }
       byId[s.id].sets.push({ ...s, idx: i });
@@ -3000,7 +3000,8 @@
         const unset = !first.equip && !first.mode
           ? `<div data-unset="${gi}" style="font-size:11px;font-weight:800;color:var(--muted)">Not recorded — tap to set for this workout only</div>`
           : "";
-        return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><strong>${esc(g.name)}</strong>${sets}${unset}${segRow(
+        const addSet = `<button class="btn" data-add-set="${gi}" type="button" style="align-self:flex-start;min-height:34px;font-size:12px">+ Add set</button>`;
+        return `<div class="setRow" style="flex-direction:column;align-items:stretch;gap:8px"><strong>${esc(g.name)}</strong>${sets}${addSet}${unset}${segRow(
           "Equip",
           `data-log-equip="${gi}"`,
           EQUIP_OPTIONS,
@@ -3021,7 +3022,9 @@
       : "";
     stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="head"><div class="title">${esc(log.name)}</div><button id="detailBack" class="btn" type="button">Back</button></div><div class="list">${rows}${addForm}<button class="submit" id="saveWorkoutDetail" style="margin:8px;width:calc(100% - 16px)" type="button">Save</button></div></section>`;
     stage.querySelector("#detailBack").addEventListener("click", showHistory);
-    stage.querySelector("#saveWorkoutDetail").addEventListener("click", () => {
+    // Weight and reps live in their inputs until something commits them, so
+    // anything that re-renders this screen has to harvest them first.
+    const commitEdits = () => {
       log.sets = log.sets.map((s, i) => {
         const wEl = stage.querySelector(`[data-set-weight="${i}"]`);
         const rEl = stage.querySelector(`[data-set-reps="${i}"]`);
@@ -3033,6 +3036,15 @@
           reps: Number.isFinite(reps) && reps >= 0 ? reps : s.reps,
         };
       });
+    };
+    const rerenderDetail = () => {
+      const top = stage.querySelector(".list")?.scrollTop || 0;
+      showWorkoutDetail(id);
+      const next = stage.querySelector(".list");
+      if (next) next.scrollTop = top;
+    };
+    stage.querySelector("#saveWorkoutDetail").addEventListener("click", () => {
+      commitEdits();
       saveDB();
       showHistory();
     });
@@ -3063,14 +3075,33 @@
     stage.querySelectorAll("[data-remove-set]").forEach((b) =>
       b.addEventListener("click", () => {
         const i = Number(b.dataset.removeSet);
+        commitEdits();
         const [removed] = log.sets.splice(i, 1);
         saveDB();
-        showWorkoutDetail(id);
+        rerenderDetail();
         showUndoToast(`Removed set ${removed.set} of ${removed.name}`, () => {
           log.sets.splice(i, 0, removed);
           saveDB();
           if (phase === "workoutDetail") showWorkoutDetail(id);
         });
+      }),
+    );
+    stage.querySelectorAll("[data-add-set]").forEach((b) =>
+      b.addEventListener("click", () => {
+        commitEdits();
+        const g = groups[Number(b.dataset.addSet)];
+        if (!g) return;
+        const lastIdx = log.sets.map((x) => x.id).lastIndexOf(g.id);
+        if (lastIdx === -1) return;
+        // Sit the new set next to the ones it belongs with, then renumber the
+        // exercise so the labels stay 1..n even if a set was removed earlier.
+        log.sets.splice(lastIdx + 1, 0, { ...log.sets[lastIdx] });
+        let n = 0;
+        log.sets.forEach((x) => {
+          if (x.id === g.id) x.set = ++n;
+        });
+        saveDB();
+        rerenderDetail();
       }),
     );
     const addSetForm = stage.querySelector("#addSetForm");

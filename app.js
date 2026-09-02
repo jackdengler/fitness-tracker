@@ -340,8 +340,8 @@
       sodium: 115,
       fiber: 0,
     },
-    parmesangarlicdressing: {
-      name: "Parmesan Garlic Yogurt Dressing (Bolthouse Farms)",
+    caesardressing: {
+      name: "Caesar Yogurt Dressing (Bolthouse Farms)",
       serving: "2 tbsp (30g)",
       calories: 50,
       protein: 2,
@@ -674,9 +674,9 @@
       ingredientIds: [["chickentenderbare", 170], ["broccolislawtaylorfarms", 1], "tomatomedium", "honeymustarddressing"],
     },
     {
-      id: "chicken-parmesan-garlic-slaw-salad",
-      name: "Chicken Parmesan Garlic Slaw Salad",
-      serving: "170g chicken, 1 cup broccoli slaw, parmesan garlic dressing",
+      id: "chicken-caesar-slaw-salad",
+      name: "Chicken Caesar Slaw Salad",
+      serving: "170g chicken, 1 cup broccoli slaw, caesar dressing",
       calories: 413,
       protein: 36.1,
       carbs: 34.1,
@@ -684,8 +684,8 @@
       sodium: 1409,
       fiber: 3.5,
       approx: true,
-      note: "The slaw salad with Bolthouse parmesan garlic instead of honey mustard. Slaw defaults to 1 cup (85g); edit its qty in cups. Chicken is a per-gram ingredient — edit its qty to the exact grams you used and the total recalculates. Default here is 170g (~6 oz, 2 tenders).",
-      ingredientIds: [["chickentenderbare", 170], ["broccolislawtaylorfarms", 1], "tomatomedium", "parmesangarlicdressing"],
+      note: "The slaw salad with Bolthouse caesar instead of honey mustard. Slaw defaults to 1 cup (85g); edit its qty in cups. Chicken is a per-gram ingredient — edit its qty to the exact grams you used and the total recalculates. Default here is 170g (~6 oz, 2 tenders).",
+      ingredientIds: [["chickentenderbare", 170], ["broccolislawtaylorfarms", 1], "tomatomedium", "caesardressing"],
     },
     {
       id: "bagel-cream-cheese",

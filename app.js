@@ -809,6 +809,18 @@
       note: "Per label (Vanilla, 4-pack): 10mg cholesterol, 5g sugar (0g added), 150mg calcium, 2mcg vitamin D, 150mg potassium.",
     },
     {
+      id: "frozengreekyogurtbar",
+      name: "Frozen Greek Yogurt Fudge Bar",
+      serving: "1 bar (65g)",
+      calories: 80,
+      protein: 5,
+      carbs: 15,
+      fat: 0,
+      sodium: 55,
+      fiber: 0.5,
+      note: "Per label: 1 bar (65g) = 80 cal, <5mg cholesterol, 12g sugar (8g added), 100mg calcium, 1.3mg iron, 190mg potassium. Fiber reads <1g on the label and is recorded as 0.5. 4 bars per box. Nonfat milk and nonfat Greek yogurt base with cocoa; made by The Magnum Ice Cream Company.",
+    },
+    {
       id: "raspberries",
       name: "Raspberries",
       serving: "62g",

@@ -2142,8 +2142,29 @@
     saveActive();
     showSet();
   }
+  // The weight an exercise starts at comes from the saved logs, not just from
+  // what was last logged live — so correcting a weight or adding a set on a
+  // past workout carries into the next one.
+  function lastLoggedWeight(id) {
+    let best = null;
+    db.workoutLogs.forEach((l) => {
+      const last = (l.sets || []).filter((x) => x.id === id).pop();
+      const w = last ? Number(last.weight) : NaN;
+      if (!Number.isFinite(w)) return;
+      const t = Date.parse(l.date) || 0;
+      if (!best || t >= best.t) best = { t, weight: w };
+    });
+    return best ? best.weight : null;
+  }
   function defaultWeight(e) {
     if (e.type === "body") return 0;
+    // A set already logged in this session wins, so set 2 follows set 1.
+    const inSession = sets(e.id).slice(-1)[0];
+    if (inSession && Number.isFinite(Number(inSession.weight))) return Number(inSession.weight);
+    const logged = lastLoggedWeight(e.id);
+    if (logged != null) return logged;
+    // liftHistory still covers an exercise whose only history is a workout
+    // that was ended without saving a log.
     if (db.liftHistory[e.id] && Number.isFinite(db.liftHistory[e.id].weight))
       return db.liftHistory[e.id].weight;
     if (e.type === "lower") return 140;

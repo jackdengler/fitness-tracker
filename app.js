@@ -618,6 +618,83 @@
       fiber: 4,
       other: "Label: 1 cup (85g) = 35 cal, 30mg sodium, 6g carb, 2g fiber, 2g protein. 170g = 2 servings exactly.",
     },
+    flourtortilla12: {
+      name: "Flour tortilla, 12in",
+      serving: "1 tortilla",
+      calories: 300,
+      protein: 8,
+      carbs: 56,
+      fat: 7,
+      sodium: 640,
+      fiber: 3,
+      approx: true,
+    },
+    carnitas6oz: {
+      name: "Carnitas",
+      serving: "~6 oz",
+      calories: 360,
+      protein: 38,
+      carbs: 0,
+      fat: 23,
+      sodium: 620,
+      fiber: 0,
+      approx: true,
+    },
+    mexicanrice: {
+      name: "Mexican rice",
+      serving: "~1 cup",
+      calories: 200,
+      protein: 4,
+      carbs: 40,
+      fat: 4,
+      sodium: 380,
+      fiber: 2,
+      approx: true,
+    },
+    pintobeans: {
+      name: "Pinto beans",
+      serving: "~½ cup",
+      calories: 120,
+      protein: 7,
+      carbs: 20,
+      fat: 1,
+      sodium: 330,
+      fiber: 6,
+      approx: true,
+    },
+    shreddedcheese: {
+      name: "Shredded cheese",
+      serving: "~¼ cup",
+      calories: 110,
+      protein: 7,
+      carbs: 1,
+      fat: 10,
+      sodium: 180,
+      fiber: 0,
+      approx: true,
+    },
+    sourcream2tbsp: {
+      name: "Sour cream",
+      serving: "2 tbsp",
+      calories: 60,
+      protein: 1,
+      carbs: 2,
+      fat: 5,
+      sodium: 15,
+      fiber: 0,
+      approx: true,
+    },
+    picodegallo: {
+      name: "Pico de gallo",
+      serving: "~¼ cup",
+      calories: 15,
+      protein: 1,
+      carbs: 3,
+      fat: 0,
+      sodium: 210,
+      fiber: 1,
+      approx: true,
+    },
     zaatarmeatballbatch: {
       name: "Za'atar Turkey Meatball Batch (19 meatballs + sauce)",
       serving: "whole batch",
@@ -816,7 +893,8 @@
       sodium: 2375,
       fiber: 12,
       approx: true,
-      note: "Restaurant item, estimated. 18g of the 50g fat is saturated (not tracked separately).",
+      note: "Restaurant item, estimated. 18g of the 50g fat is saturated (not tracked separately). Split into parts so you can switch any of them off after logging — the seven together are exactly the 1,165 cal whole-burrito estimate, but how it divides between them is a guess, so correct a part's qty if you know better.",
+      ingredientIds: ["flourtortilla12", "carnitas6oz", "mexicanrice", "pintobeans", "shreddedcheese", "sourcream2tbsp", "picodegallo"],
     },
     {
       id: "jersey-mikes-italian-no-mayo",
@@ -2756,11 +2834,35 @@
           if (calEl) calEl.textContent = `${Math.round((list[i].calories || 0) * list[i].qty)} cal`;
           const macroEl = r.querySelector("[data-ing-macros]");
           if (macroEl) macroEl.textContent = ingredientMacroLine(list[i], list[i].qty);
+          const on = list[i].qty > 0;
+          const box = r.querySelector("[data-ing-on]");
+          if (box) box.checked = on;
+          r.style.opacity = on ? "" : "0.45";
         });
         const totalsEl = stage.querySelector("[data-ing-totals]");
         if (totalsEl) totalsEl.textContent = macroLine(Object.assign(sumIngredients(list), { approx: stage.querySelector("#editApprox").checked }));
       };
       stage.querySelectorAll("[data-ing-qty]").forEach((input) => input.addEventListener("input", update));
+      // Switching an ingredient off is qty 0; switching it back on restores the
+      // amount it had, so toggling twice leaves the entry where it started.
+      const lastQty = {};
+      stage.querySelectorAll("[data-ing-on]").forEach((box) =>
+        box.addEventListener("change", () => {
+          const i = Number(box.dataset.ingOn);
+          const input = stage.querySelector(`[data-ing-qty="${i}"]`);
+          if (!input) return;
+          const q = Number(input.value);
+          if (box.checked) {
+            const restore = Number.isFinite(lastQty[i]) && lastQty[i] > 0 ? lastQty[i] : 1;
+            input.value = String(q > 0 ? q : restore);
+          } else {
+            if (Number.isFinite(q) && q > 0) lastQty[i] = q;
+            input.value = "0";
+          }
+          update();
+        }),
+      );
+      update();
       stage.querySelector("#editApprox").addEventListener("change", update);
       stage.querySelector("#saveFoodIngredients").addEventListener("click", () => {
         const name = (stage.querySelector('[data-edit-field="name"]')?.value || "").trim();
@@ -2832,7 +2934,7 @@
     const rows = x.ingredients
       .map(
         (ing, i) =>
-          `<div class="ingredientMini" data-ing-row="${i}" style="flex-direction:column;align-items:stretch;gap:4px"><div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(ing.name)} · ${esc(ing.serving)}</span><span style="display:flex;align-items:center;gap:8px"><input type="number" step="0.5" min="0" value="${ing.qty}" data-ing-qty="${i}" style="width:60px;min-height:32px;padding:0 6px;text-align:center">×<span data-ing-cal style="min-width:52px;text-align:right">${Math.round((ing.calories || 0) * ing.qty)} cal</span></span></div><div class="macroLine" data-ing-macros="${i}" style="margin-top:0">${ingredientMacroLine(ing, ing.qty)}</div></div>`,
+          `<div class="ingredientMini" data-ing-row="${i}" style="flex-direction:column;align-items:stretch;gap:4px"><div style="display:flex;justify-content:space-between;gap:12px"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-ing-on="${i}" ${ing.qty > 0 ? "checked" : ""} style="width:auto;min-height:auto;flex:0 0 auto" aria-label="Include ${esc(ing.name)}"><span>${esc(ing.name)} · ${esc(ing.serving)}</span></span><span style="display:flex;align-items:center;gap:8px"><input type="number" step="0.5" min="0" value="${ing.qty}" data-ing-qty="${i}" style="width:60px;min-height:32px;padding:0 6px;text-align:center">×<span data-ing-cal style="min-width:52px;text-align:right">${Math.round((ing.calories || 0) * ing.qty)} cal</span></span></div><div class="macroLine" data-ing-macros="${i}" style="margin-top:0">${ingredientMacroLine(ing, ing.qty)}</div></div>`,
       )
       .join("");
     return `<input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">

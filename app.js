@@ -2891,6 +2891,7 @@
         x.sodium = totals.sodium;
         x.fiber = totals.fiber;
         x.approx = !!stage.querySelector("#editApprox").checked;
+        x.date = movedDate(x);
         saveDB();
         showFoodHistory();
       });
@@ -2911,14 +2912,25 @@
         x.sodium = num("sodium", x.sodium);
         x.fiber = num("fiber", x.fiber);
         x.approx = !!stage.querySelector("#editApprox").checked;
+        x.date = movedDate(x);
         saveDB();
         showFoodHistory();
       });
     }
     armBackgroundTimer();
   }
+  // Moving an entry to another day is just editing its date — the day it shows
+  // under, and every daily total, follow from that one field.
+  function dateEditField(x) {
+    return `<label style="display:flex;flex-direction:column;gap:4px"><span class="chipName">Date</span><input data-edit-field="date" type="date" value="${esc(x.date || dayKey())}" max="${dayKey()}"></label>`;
+  }
+  function movedDate(x) {
+    const v = stage.querySelector('[data-edit-field="date"]')?.value;
+    return /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : x.date;
+  }
   function renderWholeItemEditBody(x) {
     return `<input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
+      ${dateEditField(x)}
       <input data-edit-field="serving" type="text" value="${esc(x.serving || "")}" placeholder="Serving">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input data-edit-field="calories" type="number" value="${x.calories}" placeholder="Calories">
@@ -2949,6 +2961,7 @@
       )
       .join("");
     return `<input data-edit-field="name" type="text" value="${esc(x.name)}" placeholder="Name">
+      ${dateEditField(x)}
       <div>${rows}</div>
       <div class="macroLine" data-ing-totals>${macroLine(Object.assign(sumIngredients(x.ingredients), { approx: x.approx }))}</div>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input id="editApprox" type="checkbox" style="width:auto;min-height:auto" ${x.approx ? "checked" : ""}>Estimate (not exact)</label>

@@ -1293,6 +1293,7 @@
     pauseStarted = null,
     restDone = false,
     session = [],
+    extraSets = {},
     lastLogged = null,
     startedAt = null,
     audioContext = null,
@@ -1784,8 +1785,12 @@
   function sets(id) {
     return session.filter((x) => x.id === id);
   }
+  const SETS_PER_EX = 2; // what a workout plans for; "+ Another set" raises it
+  function setTarget(id) {
+    return SETS_PER_EX + (extraSets[id] || 0);
+  }
   function complete(id) {
-    return sets(id).length >= 2;
+    return sets(id).length >= setTarget(id);
   }
   function active() {
     return workout && ["set", "rest", "swap"].includes(phase);
@@ -1826,6 +1831,7 @@
       order: order.map((x) => ({ ...x })),
       exerciseIndex,
       session: session.map((x) => ({ ...x })),
+      extraSets: { ...extraSets },
       startedAt,
       deadline,
       paused,
@@ -2254,6 +2260,7 @@
     order = a.order.map((x) => ({ ...x }));
     exerciseIndex = a.exerciseIndex;
     session = a.session.map((x) => ({ ...x }));
+    extraSets = a.extraSets ? { ...a.extraSets } : {};
     startedAt = a.startedAt;
     deadline = a.deadline;
     paused = a.paused;
@@ -2281,6 +2288,7 @@
     order = clone(k);
     exerciseIndex = 0;
     session = [];
+    extraSets = {};
     startedAt = Date.now();
     deadline = null;
     paused = false;
@@ -2348,7 +2356,7 @@
     weight = w;
     pendingWeight = null;
     reps = e.target;
-    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="exerciseHead"><div class="exerciseTitle"><div class="exerciseName">${esc(e.name)}</div><div class="exerciseMeta">${exerciseIndex + 1}/${order.length} · SET ${sets(e.id).length + 1}/2 · ${esc(equipLabel(e))} · ${esc(loadLabel(e))}</div></div><button id="swap" class="btn" type="button">Swap</button><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div class="picker"><div class="half"><div class="label">${e.type === "body" ? "Bodyweight" : `Weight (lb ${esc(loadLabel(e))}) · swipe ↔`}</div><div id="weights" class="rail">${weightVals(e).map((v) => `<button class="choice ${v === w ? "selected" : ""}" data-w="${v}" type="button">${v === 0 ? "BW" : v}</button>`).join("")}</div></div><div class="half"><div class="label">Reps · tap to log · target ${e.target}</div><div id="reps" class="rail">${Array.from({ length: 25 }, (_, i) => i + 1).map((v) => `<button class="choice ${v === e.target ? "target selected" : ""}" data-r="${v}" type="button">${v}</button>`).join("")}</div></div></div></section>`;
+    stage.innerHTML = `<section style="display:flex;flex:1;flex-direction:column;min-height:0"><div class="exerciseHead"><div class="exerciseTitle"><div class="exerciseName">${esc(e.name)}</div><div class="exerciseMeta">${exerciseIndex + 1}/${order.length} · SET ${sets(e.id).length + 1}/${setTarget(e.id)} · ${esc(equipLabel(e))} · ${esc(loadLabel(e))}</div></div><button id="swap" class="btn" type="button">Swap</button><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div class="picker"><div class="half"><div class="label">${e.type === "body" ? "Bodyweight" : `Weight (lb ${esc(loadLabel(e))}) · swipe ↔`}</div><div id="weights" class="rail">${weightVals(e).map((v) => `<button class="choice ${v === w ? "selected" : ""}" data-w="${v}" type="button">${v === 0 ? "BW" : v}</button>`).join("")}</div></div><div class="half"><div class="label">Reps · tap to log · target ${e.target}</div><div id="reps" class="rail">${Array.from({ length: 25 }, (_, i) => i + 1).map((v) => `<button class="choice ${v === e.target ? "target selected" : ""}" data-r="${v}" type="button">${v}</button>`).join("")}</div></div></div></section>`;
     stage.querySelectorAll("[data-w]").forEach((b) =>
       b.addEventListener("click", () => {
         if (phase !== "set") return;
@@ -2392,7 +2400,6 @@
     lastLogged = entry;
     db.liftHistory[e.id] = { weight, reps };
     saveDB();
-    if (session.length >= order.length * 2) return finish();
     restDone = complete(e.id);
     phase = "rest";
     deadline = Date.now() + e.rest * 1000;
@@ -2410,15 +2417,17 @@
       left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
     const remaining = order
       .map((e, i) => {
+        const target = setTarget(e.id);
         const done = sets(e.id).length;
-        const isCurrent = i === exerciseIndex && done < 2;
-        return `<div class="setRow" style="padding:6px 10px;${done >= 2 ? "opacity:0.5" : isCurrent ? "font-weight:700" : ""}"><span>${esc(e.name)}</span><span>${done >= 2 ? "✓" : `${done}/2`}</span></div>`;
+        const isCurrent = i === exerciseIndex && done < target;
+        return `<div class="setRow" style="padding:6px 10px;${done >= target ? "opacity:0.5" : isCurrent ? "font-weight:700" : ""}"><span>${esc(e.name)}</span><span>${done >= target ? "✓" : `${done}/${target}`}</span></div>`;
       })
       .join("");
-    stage.innerHTML = `<section class="timer"><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;width:100%"><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${esc(weightText(lastLogged.weight, lastLogged))} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Hold"}</button><button id="skip" type="button">Skip</button></div><div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
+    stage.innerHTML = `<section class="timer"><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;width:100%"><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${esc(weightText(lastLogged.weight, lastLogged))} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Hold"}</button><button id="skip" type="button">Skip</button></div>${restDone ? `<button id="oneMore" class="btn" style="width:100%;min-height:50px;border-left:0;border-right:0;border-top:0" type="button">+ Another set</button>` : ""}<div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
     stage.querySelector("#back").addEventListener("click", undo);
     stage.querySelector("#pause").addEventListener("click", togglePause);
     stage.querySelector("#skip").addEventListener("click", advance);
+    stage.querySelector("#oneMore")?.addEventListener("click", anotherSet);
     stage.querySelector("#pauseWorkout").addEventListener("click", showHome);
     stage.querySelector("#endWorkout").addEventListener("click", endWorkout);
     if (!paused) {
@@ -2438,6 +2447,13 @@
       beep();
       advance();
     }
+  }
+  function anotherSet() {
+    if (phase !== "rest" || !lastLogged || !restDone) return;
+    extraSets[lastLogged.id] = (extraSets[lastLogged.id] || 0) + 1;
+    restDone = false;
+    saveActive();
+    renderRest();
   }
   function togglePause() {
     if (phase !== "rest") return;

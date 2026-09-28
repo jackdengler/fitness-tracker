@@ -2018,6 +2018,14 @@
     const weekday = effectiveNow().toLocaleDateString("en-US", { weekday: "long" });
     return `<div class="label">Today · ${esc(weekday)}</div><div class="macroStrip" style="gap:9px">${rows}</div>`;
   }
+  // Theme lives in index.html (shared co.theme key); this row only drives it.
+  function themeLabel() {
+    return window.coTheme?.get() === "light" ? "Dark mode" : "Light mode";
+  }
+  document.addEventListener("co:theme", () => {
+    const btn = document.getElementById("themeToggle");
+    if (btn) btn.textContent = themeLabel();
+  });
   function showHome() {
     stopTimer();
     if (active()) saveActive();
@@ -2049,7 +2057,7 @@
       const vals = rollingMean(days.map((d) => (Number.isFinite(byDate[d]) ? byDate[d] : null)), 7, 2);
       return vals.slice().reverse().find((v) => v != null) || null;
     })();
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)">${dayTile("A", "Monday")}${dayTile("B", "Wednesday")}${dayTile("C", "Friday")}<button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${t.approx ? "~" : ""}${num(t.calories)} cal · ${r1(t.protein)}g protein<br>target ${targetLabel("calories")}</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"}${avg7 ? ` · 7-day ${avg7.toFixed(1)}` : ""}<br>${lwa ? Number(lwa.waist).toFixed(1) + " in waist" : "No waist yet"}</span></button></div>${renderTodayCard(facts)}${renderWeekCard(facts)}<button id="history" class="historyOpen" type="button">Workout history &amp; calendar · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid var(--line)">published —</div></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)">${dayTile("A", "Monday")}${dayTile("B", "Wednesday")}${dayTile("C", "Friday")}<button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${t.approx ? "~" : ""}${num(t.calories)} cal · ${r1(t.protein)}g protein<br>target ${targetLabel("calories")}</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"}${avg7 ? ` · 7-day ${avg7.toFixed(1)}` : ""}<br>${lwa ? Number(lwa.waist).toFixed(1) + " in waist" : "No waist yet"}</span></button></div>${renderTodayCard(facts)}${renderWeekCard(facts)}<button id="history" class="historyOpen" type="button">Workout history &amp; calendar · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><button id="themeToggle" class="historyOpen" type="button" style="margin-top:0">${themeLabel()}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid var(--line)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
@@ -2058,6 +2066,7 @@
     stage.querySelector("#history").addEventListener("click", showHistory);
     stage.querySelector("#mealHistory").addEventListener("click", () => showFoodHistory());
     stage.querySelector("#openPlan").addEventListener("click", showPlan);
+    stage.querySelector("#themeToggle").addEventListener("click", () => window.coTheme?.toggle());
     stage.querySelectorAll('[data-toggle="creatine"]').forEach((b) =>
       b.addEventListener("click", () => {
         toggleCreatine(dayKey());

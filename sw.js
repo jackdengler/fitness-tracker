@@ -1,4 +1,4 @@
-const CACHE = "fitness-tracker-v59";
+const CACHE = "fitness-tracker-v60";
 const SHELL = [
   "./",
   "./index.html",

@@ -35,3 +35,9 @@ Look: Central Optimus palette + type (Anton / DM Mono), tokens in
 theme is the shared `co.theme` localStorage key ("dark" | "light", default
 dark) applied by the head script and shared with the launcher on this
 origin; the home screen's "Light mode / Dark mode" row toggles it.
+
+The "Big Type skin" (last <style> in index.html) carries the Optimus look:
+square edges, Anton titles over a heavy rule, rose (--rose) for "today /
+this app", yellow for "selected / do this". It only restyles classes
+app.js renders; the home hero, tile readouts, set progress strip and rest
+drain bar are display-only markup.

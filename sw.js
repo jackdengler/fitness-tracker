@@ -1,10 +1,13 @@
-const CACHE = "fitness-tracker-v57";
+const CACHE = "fitness-tracker-v58";
 const SHELL = [
   "./",
   "./index.html",
   "./app.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
+  "./fonts/Anton-400.woff2",
+  "./fonts/DMMono-400.woff2",
+  "./fonts/DMMono-500.woff2",
 ];
 
 self.addEventListener("install", (e) => {

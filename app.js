@@ -1983,7 +1983,7 @@
     )}${stat(
       "Weight",
       delta == null ? "—" : `${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)}`,
-      delta == null ? null : delta <= 0 ? "light-dark(#1e7d32,#4ade80)" : "light-dark(#9a6a00,#e8b339)",
+      delta == null ? null : delta <= 0 ? "var(--good)" : "var(--warn)",
     )}</div></div>`;
   }
   // Today's checklist, straight off the plan: lift Mon/Wed/Fri, incline walk
@@ -2049,7 +2049,7 @@
       const vals = rollingMean(days.map((d) => (Number.isFinite(byDate[d]) ? byDate[d] : null)), 7, 2);
       return vals.slice().reverse().find((v) => v != null) || null;
     })();
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)">${dayTile("A", "Monday")}${dayTile("B", "Wednesday")}${dayTile("C", "Friday")}<button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${t.approx ? "~" : ""}${num(t.calories)} cal · ${r1(t.protein)}g protein<br>target ${targetLabel("calories")}</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"}${avg7 ? ` · 7-day ${avg7.toFixed(1)}` : ""}<br>${lwa ? Number(lwa.waist).toFixed(1) + " in waist" : "No waist yet"}</span></button></div>${renderTodayCard(facts)}${renderWeekCard(facts)}<button id="history" class="historyOpen" type="button">Workout history &amp; calendar · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid light-dark(#cfd1cc,#343733)">published —</div></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)">${dayTile("A", "Monday")}${dayTile("B", "Wednesday")}${dayTile("C", "Friday")}<button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><strong>Food</strong><span>${t.approx ? "~" : ""}${num(t.calories)} cal · ${r1(t.protein)}g protein<br>target ${targetLabel("calories")}</span></button><button id="body" class="sectionTile" type="button"><strong>Body</strong><span>${lw ? Number(lw.weight).toFixed(1) + " lb" : "No weight"}${avg7 ? ` · 7-day ${avg7.toFixed(1)}` : ""}<br>${lwa ? Number(lwa.waist).toFixed(1) + " in waist" : "No waist yet"}</span></button></div>${renderTodayCard(facts)}${renderWeekCard(facts)}<button id="history" class="historyOpen" type="button">Workout history &amp; calendar · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid var(--line)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
@@ -2081,12 +2081,12 @@
     phase = "plan";
     const h = (text) =>
       `<div style="font-size:15px;font-weight:950;margin-top:4px">${esc(text)}</div>`;
-    const sub = (text) => `<div style="font-size:12px;font-weight:850;color:light-dark(#555a54,#bdc1bb);margin-top:8px">${esc(text)}</div>`;
+    const sub = (text) => `<div style="font-size:12px;font-weight:850;color:var(--ink-2);margin-top:8px">${esc(text)}</div>`;
     const p = (text) => `<div style="font-size:13px;margin-top:4px">${text}</div>`;
     const ul = (items) => `<ul style="margin:6px 0 0;padding-left:18px;font-size:13px">${items.map((i) => `<li style="margin-top:3px">${i}</li>`).join("")}</ul>`;
     const table = (head, rows) =>
-      `<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px"><thead><tr>${head.map((c) => `<th style="text-align:left;padding:6px 4px;border-bottom:1px solid light-dark(#cfd1cc,#343733);font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:light-dark(#6d716b,#a8aca6)">${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows
-        .map((r) => `<tr>${r.map((c, i) => `<td style="padding:6px 4px;border-bottom:1px solid light-dark(#ecece8,#272a27);${i === 0 ? "font-weight:850" : ""}">${esc(c)}</td>`).join("")}</tr>`)
+      `<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px"><thead><tr>${head.map((c) => `<th style="text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows
+        .map((r) => `<tr>${r.map((c, i) => `<td style="padding:6px 4px;border-bottom:1px solid var(--line-soft);${i === 0 ? "font-weight:850" : ""}">${esc(c)}</td>`).join("")}</tr>`)
         .join("")}</tbody></table>`;
     const section = (title, body) =>
       `<div class="form" style="padding:16px">${h(title)}${body}</div>`;
@@ -2423,7 +2423,7 @@
         return `<div class="setRow" style="padding:6px 10px;${done >= target ? "opacity:0.5" : isCurrent ? "font-weight:700" : ""}"><span>${esc(e.name)}</span><span>${done >= target ? "✓" : `${done}/${target}`}</span></div>`;
       })
       .join("");
-    stage.innerHTML = `<section class="timer"><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;width:100%"><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${esc(weightText(lastLogged.weight, lastLogged))} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Hold"}</button><button id="skip" type="button">Skip</button></div>${restDone ? `<button id="oneMore" class="btn" style="width:100%;min-height:50px;border-left:0;border-right:0;border-top:0" type="button">+ Another set</button>` : ""}<div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid light-dark(#cfd1cc,#343733)">${remaining}</div></section>`;
+    stage.innerHTML = `<section class="timer"><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;width:100%"><button id="pauseWorkout" class="btn" type="button">Pause</button><button id="endWorkout" class="btn" type="button">End</button></div><div>${esc(lastLogged.name)} · Set ${lastLogged.set}</div><div class="logged">${esc(weightText(lastLogged.weight, lastLogged))} × ${lastLogged.reps}</div><div style="margin-top:8px">Next: ${esc(next)}</div><div id="secs" class="seconds">${left}</div><div class="timerActions"><button id="back" type="button">Back</button><button id="pause" type="button">${paused ? "Resume" : "Hold"}</button><button id="skip" type="button">Skip</button></div>${restDone ? `<button id="oneMore" class="btn" style="width:100%;min-height:50px;border-left:0;border-right:0;border-top:0" type="button">+ Another set</button>` : ""}<div style="width:100%;overflow-y:auto;max-height:35vh;border-top:1px solid var(--line)">${remaining}</div></section>`;
     stage.querySelector("#back").addEventListener("click", undo);
     stage.querySelector("#pause").addEventListener("click", togglePause);
     stage.querySelector("#skip").addEventListener("click", advance);
@@ -2605,10 +2605,10 @@
   function renderMacroStrip(t) {
     const statusColor = (cls) =>
       cls === "good"
-        ? "light-dark(#1e7d32,#4ade80)"
+        ? "var(--good)"
         : cls === "warn"
-          ? "light-dark(#9a6a00,#e8b339)"
-          : "light-dark(#b3261e,#ff6b5e)";
+          ? "var(--warn)"
+          : "var(--bad)";
     const chip = (name, value, key) => {
       const target = targets[key] || {};
       const goal = target.min !== undefined ? target.min : target.max;

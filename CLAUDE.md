@@ -29,3 +29,9 @@ when it is logged, and nothing in history reads today's
 Workouts must never rewrite a past log — sets recorded before the app
 tracked this read as "not recorded" and are set by hand on the logged
 workout itself.
+
+Look: Central Optimus palette + type (Anton / DM Mono), tokens in
+`index.html`'s `:root`, with `:root[data-theme="light"]` overrides. The
+theme is the shared `co.theme` localStorage key ("dark" | "light", default
+dark) applied by the head script and shared with the launcher on this
+origin; the home screen's "Light mode / Dark mode" row toggles it.

@@ -611,7 +611,8 @@
       }
       #fitness-tracker-v13 .delete {
         border-color: var(--line);
-        color: var(--muted);
+        color: var(--ink-2);
+        font-size: 16px;
       }
       #fitness-tracker-v13 input,
       #fitness-tracker-v13 select {
@@ -681,7 +682,7 @@
       }
       #fitness-tracker-v13 .heroDate,
       #fitness-tracker-v13 .heroMeta {
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 500;
         letter-spacing: 0.14em;
         text-transform: uppercase;
@@ -689,7 +690,7 @@
       #fitness-tracker-v13 .heroTitle {
         margin: 6px 0 12px;
         font-family: var(--display);
-        font-size: clamp(56px, 17vw, 84px);
+        font-size: clamp(46px, 14vw, 68px);
         line-height: 0.84;
         text-transform: uppercase;
       }
@@ -738,7 +739,7 @@
         border-bottom: 1px solid var(--line);
       }
       #fitness-tracker-v13 .day {
-        min-height: 128px;
+        min-height: 112px;
         border-color: var(--line);
         background: var(--ground);
         font-size: 72px;
@@ -767,7 +768,7 @@
         border-bottom: 1px solid var(--line);
       }
       #fitness-tracker-v13 .sectionTile {
-        min-height: 150px;
+        min-height: 128px;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
@@ -811,7 +812,7 @@
       }
       #fitness-tracker-v13 .tileBar.good i { background: var(--good); }
       #fitness-tracker-v13 .tileBar.warn i { background: var(--warn); }
-      #fitness-tracker-v13 .tileBar.bad i { background: var(--rose); }
+      #fitness-tracker-v13 .tileBar.bad i { background: var(--bad); }
 
       /* Today checklist + week strip */
       #fitness-tracker-v13 .macroStrip {
@@ -823,13 +824,16 @@
         font-size: 13px;
         font-weight: 500;
       }
+      #fitness-tracker-v13 .todoTap {
+        min-height: 36px;
+      }
       #fitness-tracker-v13 .todo.isDone {
         color: var(--muted);
       }
       #fitness-tracker-v13 .tick {
         width: 20px;
         height: 20px;
-        border: 1.5px solid var(--line);
+        border: 1.5px solid var(--faint);
         border-radius: 0;
         font-size: 12px;
       }
@@ -845,8 +849,9 @@
       }
       #fitness-tracker-v13 .chipVal {
         margin-top: 2px;
+        white-space: nowrap;
         font-family: var(--display);
-        font-size: 30px;
+        font-size: clamp(22px, 7vw, 30px);
         font-weight: 400;
         line-height: 1;
       }
@@ -939,10 +944,10 @@
         height: 6px;
         background: var(--line-soft);
       }
-      #fitness-tracker-v13 .progress i.done {
+      #fitness-tracker-v13 .progress i.segDone {
         background: var(--rose);
       }
-      #fitness-tracker-v13 .progress i.cur {
+      #fitness-tracker-v13 .progress i.segCur {
         background: var(--accent);
       }
       #fitness-tracker-v13 .half {
@@ -951,6 +956,7 @@
       #fitness-tracker-v13 .choice {
         border-color: var(--line);
         background: var(--ground);
+        font-size: clamp(52px, 16vw, 80px);
         font-weight: 400;
       }
       #fitness-tracker-v13 .choice.target {
@@ -987,6 +993,25 @@
       :root[data-theme="light"] #fitness-tracker-v13 .seconds {
         color: var(--ink);
       }
+      :root[data-theme="light"] #fitness-tracker-v13 .restBar i,
+      :root[data-theme="light"] #fitness-tracker-v13 .progress i.segCur {
+        background: var(--ink);
+      }
+      :root[data-theme="light"] #fitness-tracker-v13 .restBar,
+      :root[data-theme="light"] #fitness-tracker-v13 .progress i:not(.segDone):not(.segCur),
+      :root[data-theme="light"] #fitness-tracker-v13 .tileBar,
+      :root[data-theme="light"] #fitness-tracker-v13 .chipBar {
+        background: var(--line);
+      }
+      #fitness-tracker-v13 .logged + div {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--ink);
+      }
+      #fitness-tracker-v13 .timer .setRow {
+        padding: 9px 16px !important;
+        font-size: 13px;
+      }
       #fitness-tracker-v13 .restBar {
         width: calc(100% - 32px);
         height: 8px;
@@ -998,7 +1023,7 @@
         height: 100%;
         width: calc(var(--p, 1) * 100%);
         background: var(--accent);
-        transition: width 250ms linear;
+        transition: width 1s linear;
       }
       #fitness-tracker-v13 .timerActions {
         border-color: var(--line);
@@ -1120,6 +1145,9 @@
         text-transform: uppercase;
         padding: 14px 16px;
       }
+      #fitness-tracker-v13 .swapRow .tagRow {
+        font-family: var(--mono);
+      }
       #fitness-tracker-v13 .swapRow:active {
         background: var(--sel-bg);
         color: var(--sel-ink);
@@ -1240,8 +1268,10 @@
       }
       #fitness-tracker-v13 .seg button {
         background: var(--ground);
+        font-size: 10px;
         font-weight: 500;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
       #fitness-tracker-v13 .undoToast {
         border-radius: 0;

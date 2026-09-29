@@ -7,21 +7,13 @@
     <meta name="description" content="Workout, food, and body tracking." />
     <meta name="theme-color" content="#0b0b0b" />
     <script>
-      /* Light / dark theme plus team colours, shared with Central Optimus (same
-         origin). co.theme = "dark" | "light" (default dark); co.team = "" |
-         "steelers" | "psu" | "amherst" (default ""), on <html data-team>. Applied
+      /* Light / dark theme shared with Central Optimus (same origin): one
+         localStorage key, co.theme = "dark" | "light" (default dark), applied
          before first paint and kept in step via the storage event. Keep this
          contract identical to central-optimus/launcher/theme.js. */
       (function () {
         var KEY = "co.theme";
-        var TEAM_KEY = "co.team";
-        var TEAMS = ["", "steelers", "psu", "amherst"];
-        var BAR = {
-          "": { dark: "#0b0b0b", light: "#f5f2ea" },
-          steelers: { dark: "#101820", light: "#f8edcf" },
-          psu: { dark: "#041e42", light: "#f3f6fb" },
-          amherst: { dark: "#1a0f2e", light: "#f6f3fa" },
-        };
+        var BAR = { dark: "#0b0b0b", light: "#f5f2ea" };
         function read() {
           try {
             return localStorage.getItem(KEY) === "light" ? "light" : "dark";
@@ -29,51 +21,26 @@
             return "dark";
           }
         }
-        function readTeam() {
-          try {
-            var t = localStorage.getItem(TEAM_KEY) || "";
-            return TEAMS.indexOf(t) >= 0 ? t : "";
-          } catch (_) {
-            return "";
-          }
-        }
-        function apply() {
-          var theme = read();
-          var team = readTeam();
-          var root = document.documentElement;
-          root.dataset.theme = theme;
-          if (team) root.dataset.team = team;
-          else delete root.dataset.team;
+        function apply(theme) {
+          document.documentElement.dataset.theme = theme;
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute("content", BAR[team][theme]);
-          document.dispatchEvent(new CustomEvent("co:theme", { detail: { theme: theme, team: team } }));
+          if (meta) meta.setAttribute("content", BAR[theme]);
+          document.dispatchEvent(new CustomEvent("co:theme", { detail: theme }));
         }
-        function save(key, value) {
-          try {
-            if (value) localStorage.setItem(key, value);
-            else localStorage.removeItem(key);
-          } catch (_) {}
-          apply();
-        }
-        apply();
+        apply(read());
         window.addEventListener("storage", function (e) {
-          if (e.key === KEY || e.key === TEAM_KEY) apply();
+          if (e.key === KEY) apply(read());
         });
         window.coTheme = {
           get: read,
           set: function (theme) {
-            save(KEY, theme);
+            try {
+              localStorage.setItem(KEY, theme);
+            } catch (_) {}
+            apply(theme);
           },
           toggle: function () {
             this.set(read() === "light" ? "dark" : "light");
-          },
-          teams: TEAMS.slice(),
-          getTeam: readTeam,
-          setTeam: function (team) {
-            save(TEAM_KEY, TEAMS.indexOf(team) >= 0 ? team : "");
-          },
-          nextTeam: function () {
-            this.setTeam(TEAMS[(TEAMS.indexOf(readTeam()) + 1) % TEAMS.length]);
           },
         };
       })();
@@ -109,7 +76,7 @@
       }
       :root {
         color-scheme: dark;
-        accent-color: var(--accent);
+        accent-color: #ffe500;
         --ground: #0b0b0b;
         --surface: #151515;
         --surface-2: #101010;
@@ -162,103 +129,6 @@
         --ch-grid: #e2dccf;
         --ch-band: rgba(11, 11, 11, 0.06);
         --ch-over: #fbe4e0;
-      }
-      /* Team colours (shared co.team key, same values as the launcher):
-         each team has a dark and a light set over the plain mode above.
-         Rose stays this app's colour. */
-      :root[data-team="steelers"]:not([data-theme="light"]) {
-        --ground: #101820;
-        --surface: #16212c;
-        --surface-2: #0c131a;
-        --surface-3: #1b2733;
-        --line: #3a4757;
-        --line-soft: #22303d;
-        --accent: #ffb612;
-        --accent-ink: #ffb612;
-        --sel-ink: #101820;
-        --ch-grid: #22303d;
-      }
-      :root[data-team="steelers"][data-theme="light"] {
-        --ground: #f8edcf;
-        --surface: #fff8e6;
-        --surface-2: #f1e3bd;
-        --surface-3: #ecdcb0;
-        --line: #d2bd85;
-        --line-soft: #e6d6a8;
-        --ink: #101820;
-        --ink-2: #2c3440;
-        --muted: #5c5a52;
-        --faint: #857d68;
-        --accent: #ffb612;
-        --accent-ink: #855600;
-        --sel-ink: #101820;
-        --ch-grid: #e6d6a8;
-      }
-      :root[data-team="psu"]:not([data-theme="light"]) {
-        --ground: #041e42;
-        --surface: #0a2a55;
-        --surface-2: #031834;
-        --surface-3: #0e3263;
-        --line: #2f5189;
-        --line-soft: #143668;
-        --ink: #f5f7fb;
-        --ink-2: #cdd7e8;
-        --muted: #a3b4cf;
-        --faint: #7890b3;
-        --accent: #ffffff;
-        --accent-ink: #96bee6;
-        --sel-ink: #041e42;
-        --ch-grid: #143668;
-        --ch-band: rgba(245, 247, 251, 0.08);
-      }
-      :root[data-team="psu"][data-theme="light"] {
-        --ground: #f3f6fb;
-        --surface: #ffffff;
-        --surface-2: #e8eef7;
-        --surface-3: #dfe7f3;
-        --line: #b6c4da;
-        --line-soft: #d6deea;
-        --ink: #041e42;
-        --ink-2: #1e3a64;
-        --muted: #4b6084;
-        --faint: #7a8aa6;
-        --accent: #041e42;
-        --accent-ink: #1e407c;
-        --sel-ink: #ffffff;
-        --ch-grid: #d6deea;
-      }
-      :root[data-team="amherst"]:not([data-theme="light"]) {
-        --ground: #1a0f2e;
-        --surface: #25173f;
-        --surface-2: #150b26;
-        --surface-3: #2b1c48;
-        --line: #4b3972;
-        --line-soft: #302152;
-        --ink: #f6f3fa;
-        --ink-2: #d6cde6;
-        --muted: #ada2c3;
-        --faint: #82779a;
-        --accent: #c9b8e8;
-        --accent-ink: #c9b8e8;
-        --sel-ink: #3f1f69;
-        --ch-grid: #302152;
-        --ch-band: rgba(246, 243, 250, 0.08);
-      }
-      :root[data-team="amherst"][data-theme="light"] {
-        --ground: #f6f3fa;
-        --surface: #ffffff;
-        --surface-2: #ede7f5;
-        --surface-3: #e5ddf0;
-        --line: #cbbfdf;
-        --line-soft: #e0d8ec;
-        --ink: #1f0f38;
-        --ink-2: #3f2e5c;
-        --muted: #665a7f;
-        --faint: #8e84a3;
-        --accent: #3f1f69;
-        --accent-ink: #3f1f69;
-        --sel-ink: #ffffff;
-        --ch-grid: #e0d8ec;
       }
       html,
       body {
@@ -849,7 +719,7 @@
         padding: 12px 16px;
         border: 0;
         background: var(--accent);
-        color: var(--sel-ink);
+        color: #0b0b0b;
         font-family: var(--display);
         font-size: 24px;
         font-weight: 400;
@@ -970,7 +840,7 @@
       #fitness-tracker-v13 .tick.on {
         background: var(--accent);
         border-color: var(--accent);
-        color: var(--sel-ink);
+        color: #0b0b0b;
       }
       #fitness-tracker-v13 .chipName {
         font-size: 10px;
@@ -1093,7 +963,7 @@
         box-shadow: inset 0 -6px 0 var(--rose);
       }
       #fitness-tracker-v13 .choice.selected.target {
-        box-shadow: inset 0 -6px 0 var(--sel-ink);
+        box-shadow: inset 0 -6px 0 #0b0b0b;
       }
 
       /* ---------- Workout: rest ---------- */
@@ -1175,7 +1045,7 @@
       #fitness-tracker-v13 #oneMore {
         border-radius: 0;
         background: var(--accent);
-        color: var(--sel-ink);
+        color: #0b0b0b;
         border: 0 !important;
         text-transform: uppercase;
         letter-spacing: 0.1em;
@@ -1406,7 +1276,7 @@
       #fitness-tracker-v13 .undoToast {
         border-radius: 0;
         background: var(--accent);
-        color: var(--sel-ink);
+        color: #0b0b0b;
         font-weight: 500;
         letter-spacing: 0.04em;
       }

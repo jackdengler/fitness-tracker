@@ -34,7 +34,11 @@ Look: Central Optimus palette + type (Anton / DM Mono), tokens in
 `index.html`'s `:root`, with `:root[data-theme="light"]` overrides. The
 theme is the shared `co.theme` localStorage key ("dark" | "light", default
 dark) applied by the head script and shared with the launcher on this
-origin; the home screen's "Light mode / Dark mode" row toggles it.
+origin; the home screen's "Light mode / Dark mode" row toggles it. A second
+shared key, `co.team` ("" | "steelers" | "psu" | "amherst"), sets
+`<html data-team>`; its palettes sit in index.html after the light block
+(a dark and a light set per team, same values as the launcher), and the
+"Colours · …" row cycles it. Text on an accent fill uses `--sel-ink`.
 
 The "Big Type skin" (last <style> in index.html) carries the Optimus look:
 square edges, Anton titles over a heavy rule, rose (--rose) for "today /

@@ -2025,9 +2025,15 @@
   function themeLabel() {
     return window.coTheme?.get() === "light" ? "Dark mode" : "Light mode";
   }
+  const TEAM_NAMES = { "": "Classic", steelers: "Steelers", psu: "Penn State", amherst: "Amherst" };
+  function teamLabel() {
+    return `Colours · ${TEAM_NAMES[window.coTheme?.getTeam?.() ?? ""]}`;
+  }
   document.addEventListener("co:theme", () => {
     const btn = document.getElementById("themeToggle");
     if (btn) btn.textContent = themeLabel();
+    const team = document.getElementById("teamToggle");
+    if (team) team.textContent = teamLabel();
   });
   function renderHero(facts) {
     const now = effectiveNow();
@@ -2071,7 +2077,7 @@
       const vals = rollingMean(days.map((d) => (Number.isFinite(byDate[d]) ? byDate[d] : null)), 7, 2);
       return vals.slice().reverse().find((v) => v != null) || null;
     })();
-    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}${renderHero(facts)}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)">${dayTile("A", "Monday")}${dayTile("B", "Wednesday")}${dayTile("C", "Friday")}<button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><span class="tileLabel">Food</span><strong>${t.approx ? "~" : ""}${num(t.calories)}</strong><span class="tileUnit">cal · ${r1(t.protein)}g protein</span><span class="tileBar ${metricStatus(t.calories, "calories").trim()}"><i style="width:${Math.min(100, (t.calories / (targets.calories.max || 1)) * 100).toFixed(0)}%"></i></span><span class="tileSub">target ${targetLabel("calories")}</span></button><button id="body" class="sectionTile" type="button"><span class="tileLabel">Body</span><strong>${lw ? Number(lw.weight).toFixed(1) : "—"}</strong><span class="tileUnit">${lw ? "lb" : "No weight"}${avg7 ? ` · 7-day ${avg7.toFixed(1)}` : ""}</span><span class="tileSub">${lwa ? Number(lwa.waist).toFixed(1) + " in waist" : "No waist yet"}</span></button></div>${renderTodayCard(facts)}${renderWeekCard(facts)}<button id="history" class="historyOpen" type="button">Workout history &amp; calendar · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><button id="themeToggle" class="historyOpen" type="button" style="margin-top:0">${themeLabel()}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid var(--line)">published —</div></section>`;
+    stage.innerHTML = `<section class="home"><div id="syncStatus" class="syncLine"></div>${resume}${renderHero(facts)}<div class="label" style="justify-content:space-between">Workout<button id="editWorkouts" type="button" style="background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0">Edit</button></div><div class="days" style="grid-template-columns:repeat(4,1fr)">${dayTile("A", "Monday")}${dayTile("B", "Wednesday")}${dayTile("C", "Friday")}<button class="day" id="cardio" type="button" style="font-size:22px">Cardio<span>${cardioLabel}</span></button></div><div class="label">Tracking</div><div class="sections"><button id="food" class="sectionTile" type="button"><span class="tileLabel">Food</span><strong>${t.approx ? "~" : ""}${num(t.calories)}</strong><span class="tileUnit">cal · ${r1(t.protein)}g protein</span><span class="tileBar ${metricStatus(t.calories, "calories").trim()}"><i style="width:${Math.min(100, (t.calories / (targets.calories.max || 1)) * 100).toFixed(0)}%"></i></span><span class="tileSub">target ${targetLabel("calories")}</span></button><button id="body" class="sectionTile" type="button"><span class="tileLabel">Body</span><strong>${lw ? Number(lw.weight).toFixed(1) : "—"}</strong><span class="tileUnit">${lw ? "lb" : "No weight"}${avg7 ? ` · 7-day ${avg7.toFixed(1)}` : ""}</span><span class="tileSub">${lwa ? Number(lwa.waist).toFixed(1) + " in waist" : "No waist yet"}</span></button></div>${renderTodayCard(facts)}${renderWeekCard(facts)}<button id="history" class="historyOpen" type="button">Workout history &amp; calendar · ${db.workoutLogs.length}</button><button id="mealHistory" class="historyOpen" type="button" style="margin-top:0">Meal history</button><button id="openPlan" class="historyOpen" type="button" style="margin-top:0">Plan</button><button id="themeToggle" class="historyOpen" type="button" style="margin-top:0">${themeLabel()}</button><button id="teamToggle" class="historyOpen" type="button" style="margin-top:0">${teamLabel()}</button><div id="publishTime" class="syncLine" style="border-bottom:0;border-top:1px solid var(--line)">published —</div></section>`;
     stage.querySelector("#resume")?.addEventListener("click", restore);
     stage.querySelector("#food").addEventListener("click", () => showFood("meals"));
     stage.querySelector("#body").addEventListener("click", showBody);
@@ -2081,6 +2087,7 @@
     stage.querySelector("#mealHistory").addEventListener("click", () => showFoodHistory());
     stage.querySelector("#openPlan").addEventListener("click", showPlan);
     stage.querySelector("#themeToggle").addEventListener("click", () => window.coTheme?.toggle());
+    stage.querySelector("#teamToggle").addEventListener("click", () => window.coTheme?.nextTeam());
     stage.querySelectorAll('[data-toggle="creatine"]').forEach((b) =>
       b.addEventListener("click", () => {
         toggleCreatine(dayKey());
